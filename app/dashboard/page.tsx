@@ -1,107 +1,115 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
-import { Plus, Search, Home, Zap, BarChart3, Settings, LogOut } from "lucide-react";
+import DashboardCard from "./components/DashboardCard";
+import { Zap, FileText, MessageSquare, Sparkles, TrendingUp, Trophy, Target } from "lucide-react";
+import { motion } from "framer-motion";
 
-export default function DemoDashboard() {
-  const router = useRouter();
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-    const token = localStorage.getItem("token");
-    if (!token) router.push("/login");
-  }, [router]);
-
-  if (!mounted) return <div className="min-h-screen bg-black" />;
-
+export default function DashboardPage() {
   return (
-    <div className="min-h-screen bg-[#000] text-zinc-400 font-sans flex flex-col md:flex-row">
+    <div className="space-y-10 pb-10 transition-colors duration-500">
       
-      {/* Sleek Vertical Nav */}
-      <nav className="w-full md:w-20 border-b md:border-b-0 md:border-r border-zinc-900 flex md:flex-col items-center justify-between p-4 md:py-8">
-        <div className="h-10 w-10 bg-white rounded-2xl flex items-center justify-center shadow-[0_0_20px_rgba(255,255,255,0.15)]">
-          <div className="h-5 w-5 bg-black rounded-lg rotate-45" />
-        </div>
-        
-        <div className="flex md:flex-col gap-8">
-          <Home className="w-5 h-5 text-white" />
-          <Zap className="w-5 h-5 hover:text-white transition-colors cursor-pointer" />
-          <BarChart3 className="w-5 h-5 hover:text-white transition-colors cursor-pointer" />
-          <Settings className="w-5 h-5 hover:text-white transition-colors cursor-pointer" />
-        </div>
-
-        <button 
-          onClick={() => { localStorage.removeItem("token"); router.push("/login"); }}
-          className="hover:text-red-400 transition-colors"
-        >
-          <LogOut className="w-5 h-5" />
-        </button>
-      </nav>
-
-      {/* Main Content Area */}
-      <main className="flex-1 p-6 md:p-10 max-w-7xl mx-auto w-full">
-        
-        {/* Top Bar */}
-        <header className="flex justify-between items-center mb-12">
-          <div>
-            <h1 className="text-2xl font-semibold text-white tracking-tight">Vibe Check</h1>
-            <p className="text-sm text-zinc-600">Your daily stats are looking fire.</p>
-          </div>
-          <div className="flex gap-3">
-            <div className="hidden sm:flex items-center bg-zinc-900 border border-zinc-800 rounded-full px-4 py-2">
-              <Search className="w-4 h-4 mr-2 text-zinc-600" />
-              <input className="bg-transparent outline-none text-xs" placeholder="Search..." />
+      {/* Header Section */}
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-8">
+        <div className="space-y-2">
+          <motion.div 
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            className="flex items-center gap-2"
+          >
+            <div className="p-1.5 bg-[#63D2F3]/10 rounded-lg text-[#63D2F3]">
+              <Sparkles size={16} className="fill-current" />
             </div>
-            <button className="bg-white text-black p-2 rounded-full hover:scale-110 transition-transform">
-              <Plus className="w-5 h-5" />
-            </button>
-          </div>
-        </header>
-
-        {/* Bento Grid Layout */}
-        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4">
+            <span className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.3em]">
+              Next-Gen Learning
+            </span>
+          </motion.div>
           
-          {/* Main Hero Card */}
-          <div className="md:col-span-2 lg:col-span-3 bg-zinc-900/30 border border-zinc-800/50 rounded-[32px] p-8 relative overflow-hidden group">
-            <div className="absolute top-0 right-0 p-8">
-              <Zap className="w-12 h-12 text-zinc-800 group-hover:text-yellow-500/20 transition-colors" />
-            </div>
-            <h2 className="text-4xl font-bold text-white mb-4">84%</h2>
-            <p className="text-zinc-500 max-w-[200px]">System performance is optimal today.</p>
-            <div className="mt-8 flex gap-2">
-              <span className="px-3 py-1 bg-zinc-800 text-[10px] rounded-full text-zinc-300 font-bold tracking-widest uppercase">Active</span>
-              <span className="px-3 py-1 bg-zinc-800 text-[10px] rounded-full text-zinc-300 font-bold tracking-widest uppercase">Secure</span>
-            </div>
-          </div>
-
-          {/* Small Action Card */}
-          <div className="bg-[#111] border border-zinc-800 rounded-[32px] p-8 flex flex-col justify-between hover:bg-zinc-900 transition-colors cursor-pointer">
-            <div className="h-10 w-10 bg-zinc-800 rounded-xl" />
-            <div>
-              <p className="text-white font-medium">Analytics</p>
-              <p className="text-xs text-zinc-600">View detailed reports</p>
-            </div>
-          </div>
-
-          {/* Bottom Row */}
-          <div className="bg-zinc-900/30 border border-zinc-800/50 rounded-[32px] p-6 flex items-center justify-between">
-            <span className="text-sm">Storage</span>
-            <span className="text-white font-mono">12/50 GB</span>
-          </div>
-
-          <div className="md:col-span-2 lg:col-span-3 bg-gradient-to-r from-zinc-900/50 to-transparent border border-zinc-800/50 rounded-[32px] p-6 flex items-center gap-6 overflow-hidden">
-            <div className="flex -space-x-3">
-              {[1, 2, 3, 4].map((i) => (
-                <div key={i} className="h-10 w-10 rounded-full border-2 border-black bg-zinc-800" />
-              ))}
-            </div>
-            <p className="text-sm text-zinc-400">Team is active on <span className="text-white underline underline-offset-4 font-medium">3 projects</span></p>
-          </div>
-
+          <h2 className="text-5xl font-black text-slate-900 dark:text-white tracking-tighter leading-none">
+            Welcome to <span className="text-[#63D2F3]">Jnexia</span> 
+          </h2>
+          <p className="text-slate-400 dark:text-slate-400 font-bold text-base max-w-md">
+            Your AI career accelerator is active.
+          </p>
         </div>
-      </main>
+
+        {/* Stats Section - Interactive 3D feel */}
+        <div className="flex gap-4">
+          {[
+            { label: "Skill Rank", value: "Level 4", icon: Trophy, color: "text-[#F6AD55]", bg: "bg-[#F6AD55]/10" },
+            { label: "Goal Score", value: "82%", icon: Target, color: "text-[#D6BCFA]", bg: "bg-[#D6BCFA]/10" }
+          ].map((stat, i) => (
+            <motion.div 
+              key={i}
+              whileHover={{ y: -5, rotateX: 5 }}
+              className="bg-white dark:bg-slate-900 border-2 border-slate-50 dark:border-slate-800 p-4 rounded-[1.5rem] flex items-center gap-4 shadow-sm dark:shadow-none transition-all"
+            >
+              <div className={`w-10 h-10 ${stat.bg} ${stat.color} rounded-xl flex items-center justify-center`}>
+                <stat.icon size={20} strokeWidth={3} />
+              </div>
+              <div>
+                <p className="text-lg font-black text-slate-800 dark:text-slate-100 leading-none">{stat.value}</p>
+                <p className="text-[9px] font-black text-slate-300 dark:text-slate-500 uppercase mt-1">{stat.label}</p>
+              </div>
+            </motion.div>
+          ))}
+        </div>
+      </div>
+
+      {/* Grid - Cards handle their own internal dark mode logic */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+        <DashboardCard
+          title="AI Learning Path"
+          description="Personalized roadmap tailored to your specific goals."
+          href="/dashboard/learning-path"
+          icon={Zap}
+          color="blue"
+        />
+        <DashboardCard
+          title="Resume Analyzer"
+          description="Get instant AI feedback and scoring for your CV."
+          href="/dashboard/resume-analyzer"
+          icon={FileText}
+          color="purple"
+        />
+        <DashboardCard
+          title="AI Chatbot"
+          description="Chat with your career mentor about jobs and trends."
+          href="/dashboard/chatbot"
+          icon={MessageSquare}
+          color="orange"
+        />
+      </div>
+
+      {/* Motivation Card - Optimized for Dark/Light Interaction */}
+      <motion.div 
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="bg-slate-900 dark:bg-[#63D2F3]/5 dark:border-2 dark:border-[#63D2F3]/20 rounded-[2.5rem] p-10 text-white relative overflow-hidden group"
+      >
+        <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-8">
+          <div className="flex items-center gap-6">
+            <div className="hidden md:flex w-14 h-14 bg-white/5 dark:bg-[#63D2F3]/10 rounded-2xl items-center justify-center border border-white/10 dark:border-[#63D2F3]/20 transition-transform group-hover:scale-110">
+              <TrendingUp size={28} className="text-[#63D2F3]" strokeWidth={3} />
+            </div>
+            <div>
+              <h3 className="text-xl font-black tracking-tight leading-none text-white dark:text-[#63D2F3]">Consistency Wins</h3>
+              <p className="text-slate-400 dark:text-slate-300 text-sm font-bold mt-2 max-w-lg">
+                Your streak is 5 days. Keep pushing to unlock the AI Interview Prep module!
+              </p>
+            </div>
+          </div>
+          <motion.button 
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            className="px-8 py-4 bg-[#63D2F3] text-white rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-[0_5px_0_0_#48BBDB] transition-all active:shadow-none active:translate-y-[5px]"
+          >
+            Check Daily Tasks
+          </motion.button>
+        </div>
+        
+        {/* Background Decor - Interactive glow */}
+        <div className="absolute -top-20 -right-20 w-64 h-64 bg-[#63D2F3] opacity-10 dark:opacity-20 rounded-full blur-3xl group-hover:opacity-30 transition-opacity" />
+      </motion.div>
     </div>
   );
 }

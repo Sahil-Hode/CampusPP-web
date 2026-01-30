@@ -1,4 +1,4 @@
-const BASE_URL = "https://techxpression-hackathon.onrender.com";
+const BASE_URL = "https://techxpression-hackathon.onrender.com/api";
 
 export async function apiRequest(
   endpoint: string,
