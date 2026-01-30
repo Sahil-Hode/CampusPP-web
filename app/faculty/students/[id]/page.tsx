@@ -12,7 +12,8 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { motion } from "framer-motion";
-import RiskBadge from "../components/RiskBadge";
+import RiskBadge from "../../components/RiskBadge";
+
 
 export default function StudentDetail() {
   return (
