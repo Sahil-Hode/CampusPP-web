@@ -98,7 +98,7 @@ export default function RegistrationPipeline() {
     Papa.parse(file, {
       header: true,
       skipEmptyLines: true,
-      complete: (results) => {
+      complete: (results: any) => {
         const formatted: Student[] = results.data.map((row: any) => ({
           email: row.email || row.Email || "",
           name: row.name || row.Name || "",
