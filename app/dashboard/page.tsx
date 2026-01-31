@@ -356,8 +356,8 @@ export default function DashboardPage() {
               <div className="flex justify-between items-start mb-6">
                 <h3 className="font-black uppercase tracking-widest text-xs text-slate-400">Performance Summary</h3>
                 {loadingStates.summary ? <Skeleton className="w-16 h-6" /> : (
-                  <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase ${getRiskColor(data.summary?.riskLevel)}`}>
-                    {data.summary?.riskLevel} Risk
+                  <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase ${getRiskColor(data.summary?.riskLevel || 'Low')}`}>
+                    {data.summary?.riskLevel || 'Low'} Risk
                   </span>
                 )}
               </div>
@@ -369,7 +369,7 @@ export default function DashboardPage() {
               ) : (
                 <div className="space-y-1">
                   <div className="text-6xl font-black tracking-tighter text-slate-900 dark:text-white">
-                    {data.summary?.overallScore}%
+                    {data.summary?.overallScore || 0}%
                   </div>
                   <p className="text-slate-500 font-medium">Overall Academic Score</p>
                 </div>
@@ -390,9 +390,9 @@ export default function DashboardPage() {
           {/* KPI Cards (API 2) */}
           <div className="lg:col-span-2 grid grid-cols-1 sm:grid-cols-3 gap-4">
             {[
-              { label: 'Attendance', value: data.overview?.attendance, suffix: '%', icon: Clock, color: 'text-blue-500' },
-              { label: 'Avg Score', value: data.overview?.avgScore, suffix: '', icon: GraduationCap, color: 'text-purple-500' },
-              { label: 'Completion', value: data.overview?.completionRate, suffix: '%', icon: Target, color: 'text-emerald-500' }
+              { label: 'Attendance', value: data.overview?.attendance || 0, suffix: '%', icon: Clock, color: 'text-blue-500' },
+              { label: 'Avg Score', value: data.overview?.avgScore || 0, suffix: '', icon: GraduationCap, color: 'text-purple-500' },
+              { label: 'Completion', value: data.overview?.completionRate || 0, suffix: '%', icon: Target, color: 'text-emerald-500' }
             ].map((kpi: any, i: number) => (
               <Card key={i} className="flex flex-col items-center justify-center text-center group hover:scale-[1.02]">
                 <div className={`p-4 rounded-3xl bg-slate-50 dark:bg-zinc-800 mb-4 ${kpi.color}`}>
@@ -486,21 +486,21 @@ export default function DashboardPage() {
               <div className="space-y-6">
                 <div className="flex items-end justify-between">
                   <div className="text-5xl font-black text-slate-900 dark:text-white leading-none">
-                    {data.risk?.score}<span className="text-2xl opacity-30">%</span>
+                    {data.risk?.score || 0}<span className="text-2xl opacity-30">%</span>
                   </div>
-                  <div className={`px-4 py-1.5 rounded-xl font-black text-xs uppercase ${getRiskColor(data.risk?.level)}`}>
-                    {data.risk?.level} Threat
+                  <div className={`px-4 py-1.5 rounded-xl font-black text-xs uppercase ${getRiskColor(data.risk?.level || 'Low')}`}>
+                    {data.risk?.level || 'Low'} Threat
                   </div>
                 </div>
                 <div className="w-full bg-slate-100 dark:bg-zinc-800 h-3 rounded-full overflow-hidden">
                   <div
-                    className={`h-full transition-all duration-1000 ${data.risk?.score > 50 ? 'bg-red-500' : 'bg-emerald-500'}`}
-                    style={{ width: `${data.risk?.score}%` }}
+                    className={`h-full transition-all duration-1000 ${(data.risk?.score || 0) > 50 ? 'bg-red-500' : 'bg-emerald-500'}`}
+                    style={{ width: `${data.risk?.score || 0}%` }}
                   />
                 </div>
                 <div className="p-4 bg-slate-50 dark:bg-zinc-800/50 rounded-2xl border border-slate-100 dark:border-zinc-800">
                   <p className="text-sm font-medium text-slate-600 dark:text-slate-400 italic">
-                    "{data.risk?.explanation}"
+                    "{data.risk?.explanation || 'No assessment details available.'}"
                   </p>
                 </div>
               </div>
