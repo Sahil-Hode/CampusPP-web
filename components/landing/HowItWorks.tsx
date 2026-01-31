@@ -32,7 +32,7 @@ export default function HowItWorks() {
             <span className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400">The Roadmap</span>
           </div>
           <h2 className="text-5xl md:text-7xl font-black text-slate-900 tracking-tighter">
-            Three Steps to <span className="text-[#63D2F3]">Mastery.</span>
+            Three Step to <span className="text-[#63D2F3]">Mastery.</span>
           </h2>
         </div>
 
@@ -112,9 +112,8 @@ function Step({ step, title, text, icon, align, color, shadowColor }: any) {
       initial={{ opacity: 0, scale: 0.9 }}
       whileInView={{ opacity: 1, scale: 1 }}
       viewport={{ once: true, margin: "-100px" }}
-      className={`flex flex-col md:flex-row items-center justify-between gap-12 ${
-        align === "right" ? "md:flex-row-reverse" : ""
-      }`}
+      className={`flex flex-col md:flex-row items-center justify-between gap-12 ${align === "right" ? "md:flex-row-reverse" : ""
+        }`}
     >
       {/* Content Card */}
       <div className="w-full md:w-[45%] z-20">
@@ -134,7 +133,7 @@ function Step({ step, title, text, icon, align, color, shadowColor }: any) {
       {/* Center Icon Block */}
       <div className="relative z-30">
         <div
-          style={{ 
+          style={{
             backgroundColor: color,
             boxShadow: `0 8px 0 0 ${shadowColor}`
           }}
