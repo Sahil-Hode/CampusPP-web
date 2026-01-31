@@ -131,7 +131,6 @@ export default function ResumeAnalyzer() {
 
       // Normalize Response
       const rawData = res.data || {};
-      console.log("Resume Analysis Response:", rawData);
 
       const newAnalysis: AnalysisItem = {
         _id: rawData.analysisId || rawData._id || Date.now().toString(),
