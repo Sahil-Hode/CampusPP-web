@@ -422,7 +422,7 @@ export default function DashboardPage() {
                 <Skeleton className="w-full h-full" />
               ) : (
                 <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={data.trends}>
+                  <AreaChart data={data.trends || []}>
                     <defs>
                       <linearGradient id="colorScore" x1="0" y1="0" x2="0" y2="1">
                         <stop offset="5%" stopColor="#63D2F3" stopOpacity={0.3} />
@@ -453,13 +453,13 @@ export default function DashboardPage() {
                 <Skeleton className="w-full h-full" />
               ) : (
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={data.scores} layout="vertical" margin={{ left: 40 }}>
+                  <BarChart data={data.scores || []} layout="vertical" margin={{ left: 40 }}>
                     <CartesianGrid horizontal={false} strokeDasharray="3 3" stroke="#e2e8f0" opacity={0.5} />
                     <XAxis type="number" hide domain={[0, 100]} />
                     <YAxis dataKey="subject" type="category" axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 11, fontWeight: 700 }} width={100} />
                     <Tooltip cursor={{ fill: 'transparent' }} content={<CustomTooltip />} />
                     <Bar dataKey="score" radius={[0, 10, 10, 0]} barSize={24}>
-                      {data.scores?.map((entry: ScoreItem, index: number) => (
+                      {(data.scores || []).map((entry: ScoreItem, index: number) => (
                         <Cell key={`cell-${index}`} fill={entry.color} />
                       ))}
                     </Bar>
@@ -521,7 +521,7 @@ export default function DashboardPage() {
 
             <div className="space-y-4">
               {loadingStates.intervention ? [1, 2, 3].map((i: number) => <Skeleton key={i} className="h-16 w-full" />) : (
-                data.intervention?.map((item: InterventionItem, idx: number) => (
+                (data.intervention || []).map((item: InterventionItem, idx: number) => (
                   <div key={item.id} className="flex flex-col md:flex-row md:items-center justify-between p-4 bg-slate-50 dark:bg-zinc-800/30 rounded-2xl border border-slate-100 dark:border-zinc-800 group hover:border-orange-200 transition-colors">
                     <div className="flex items-center gap-4 mb-2 md:mb-0">
                       <div className="w-8 h-8 rounded-full bg-white dark:bg-zinc-700 flex items-center justify-center font-bold text-xs text-slate-400 border border-slate-200 dark:border-zinc-600">
@@ -558,7 +558,7 @@ export default function DashboardPage() {
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {loadingStates.recommendations ? [1, 2, 3].map((i: number) => <Skeleton key={i} className="h-40 w-full rounded-[2rem]" />) : (
-              data.recommendations?.map((rec: RecommendationItem) => (
+              (data.recommendations || []).map((rec: RecommendationItem) => (
                 <div key={rec.id} className="bg-[#63D2F3]/5 border border-[#63D2F3]/20 p-8 rounded-[2.5rem] hover:bg-[#63D2F3]/10 transition-all group relative overflow-hidden">
                   <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:scale-125 transition-transform">
                     <Target size={80} />
