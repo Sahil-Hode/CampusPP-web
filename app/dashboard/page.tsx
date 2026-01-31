@@ -89,7 +89,7 @@ interface PerformanceDataState {
   overview: OverviewData | null;
   scores: ScoreItem[] | null;
   trends: TrendItem[] | null;
-  risk: RiskData | null;
+  risk: RiskData;
   recommendations: RecommendationItem[] | null;
   intervention: InterventionItem[] | null;
 }
@@ -173,7 +173,7 @@ export default function DashboardPage() {
     overview: null,
     scores: [],
     trends: [],
-    risk: null,
+    risk: { level: 'Low', score: 0, explanation: 'Awaiting analysis...' },
     recommendations: [],
     intervention: []
   });
@@ -486,21 +486,21 @@ export default function DashboardPage() {
               <div className="space-y-6">
                 <div className="flex items-end justify-between">
                   <div className="text-5xl font-black text-slate-900 dark:text-white leading-none">
-                    {data.risk?.score || 0}<span className="text-2xl opacity-30">%</span>
+                    {data.risk.score}<span className="text-2xl opacity-30">%</span>
                   </div>
-                  <div className={`px-4 py-1.5 rounded-xl font-black text-xs uppercase ${getRiskColor(data.risk?.level || 'Low')}`}>
-                    {data.risk?.level || 'Low'} Threat
+                  <div className={`px-4 py-1.5 rounded-xl font-black text-xs uppercase ${getRiskColor(data.risk.level)}`}>
+                    {data.risk.level} Threat
                   </div>
                 </div>
                 <div className="w-full bg-slate-100 dark:bg-zinc-800 h-3 rounded-full overflow-hidden">
                   <div
-                    className={`h-full transition-all duration-1000 ${(data.risk?.score || 0) > 50 ? 'bg-red-500' : 'bg-emerald-500'}`}
-                    style={{ width: `${data.risk?.score || 0}%` }}
+                    className={`h-full transition-all duration-1000 ${data.risk.score > 50 ? 'bg-red-500' : 'bg-emerald-500'}`}
+                    style={{ width: `${data.risk.score}%` }}
                   />
                 </div>
                 <div className="p-4 bg-slate-50 dark:bg-zinc-800/50 rounded-2xl border border-slate-100 dark:border-zinc-800">
                   <p className="text-sm font-medium text-slate-600 dark:text-slate-400 italic">
-                    "{data.risk?.explanation || 'No assessment details available.'}"
+                    "{data.risk.explanation}"
                   </p>
                 </div>
               </div>
