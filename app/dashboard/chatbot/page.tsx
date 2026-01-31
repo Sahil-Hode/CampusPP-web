@@ -79,7 +79,7 @@ export default function ChatbotPage() {
                     : "bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-100 dark:border-slate-700"}`}>
 
                     {c.role === 'ai' ? (
-                      <div className="prose dark:prose-invert prose-slate max-w-none 
+                      <div className="prose dark:prose-invert prose-slate max-w-none overflow-x-auto
                         prose-p:mb-4 prose-p:last:mb-0 
                         prose-headings:font-black prose-headings:tracking-tighter prose-headings:text-slate-900 dark:prose-headings:text-white
                         prose-h3:text-lg prose-h3:mb-2
