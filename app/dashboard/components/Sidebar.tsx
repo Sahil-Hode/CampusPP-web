@@ -33,7 +33,6 @@ export default function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
   const menuItems = [
     { name: "Dashboard", icon: LayoutDashboard, path: "/dashboard", activeColor: "bg-[#63D2F3]" },
     { name: "Learning Path", icon: Brain, path: "/dashboard/learning-path", activeColor: "bg-[#F6AD55]" },
-    { name: "Resume Analyzer", icon: FileText, path: "/dashboard/resume-analyzer", activeColor: "bg-[#4299E1]" },
     { name: "AI Chatbot", icon: MessageCircle, path: "/dashboard/chatbot", activeColor: "bg-[#B794F4]" },
     { name: "My Profile", icon: User, path: "/dashboard/profile", activeColor: "bg-[#F687B3]" },
   ];
