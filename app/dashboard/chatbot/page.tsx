@@ -13,7 +13,7 @@ type ChatMessage = {
 export default function ChatbotPage() {
   const [message, setMessage] = useState("");
   const [chat, setChat] = useState<ChatMessage[]>([
-    { role: "ai", text: "Hello! I'm your Jnexia mentor. How can I help you today?" },
+    { role: "ai", text: "Hello! I’m your Jnexia AI Trainer — here to guide you through learning, career planning, and problem-solving.How can I assist you today?" },
   ]);
   const [loading, setLoading] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);

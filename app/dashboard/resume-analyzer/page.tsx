@@ -17,7 +17,7 @@ import {
   FileText
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import { apiRequest } from "@/lib/api"; 
+import { apiRequest } from "@/lib/api";
 
 // Matches the API documentation structure
 type APIAnalysisDetail = {
@@ -27,6 +27,7 @@ type APIAnalysisDetail = {
   criticalImprovements?: string[];
   missingOrSuggestedSkills?: string[];
   formattingAndStructureAdvice?: string[];
+  keywordOptimization?: string[];
 };
 
 type AnalysisItem = {
@@ -131,12 +132,14 @@ export default function ResumeAnalyzer() {
         _id: rawData.analysisId || rawData._id || Date.now().toString(),
         fileName: file.name,
         fileSizeKB: (file.size / 1024).toFixed(1),
-        createdAt: new Date().toISOString(),
+        createdAt: rawData.createdAt || new Date().toISOString(),
         analysis: rawData.analysis || {
           atsScore: rawData.atsScore || 0,
           overallRating: rawData.overallRating || "N/A",
           mainStrengths: [],
-          criticalImprovements: []
+          criticalImprovements: [],
+          keywordOptimization: [],
+          missingOrSuggestedSkills: []
         }
       };
 
@@ -436,6 +439,23 @@ export default function ResumeAnalyzer() {
                           </li>
                         ))}
                       </ul>
+                    </div>
+                  )}
+
+                  {/* Keyword Optimization */}
+                  {(selectedAnalysis.analysis.keywordOptimization?.length || 0) > 0 && (
+                    <div className="bg-amber-50 dark:bg-amber-900/10 p-6 rounded-[2rem] border border-amber-100 dark:border-amber-900/30">
+                      <h4 className="flex items-center gap-2 text-sm font-black uppercase tracking-widest text-amber-600 mb-4">
+                        <Sparkles size={16} /> Keyword Optimization
+                      </h4>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        {selectedAnalysis.analysis.keywordOptimization?.map((advice, i) => (
+                          <div key={i} className="p-3 bg-white dark:bg-zinc-800/50 rounded-xl border border-amber-200/50 dark:border-amber-900/30 text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-2">
+                            <div className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+                            {advice}
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   )}
 
