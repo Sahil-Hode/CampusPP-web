@@ -124,6 +124,7 @@ export default function ResumeAnalyzer() {
   const [analyses, setAnalyses] = useState<AnalysisItem[]>([]);
   const [selectedAnalysis, setSelectedAnalysis] = useState<AnalysisItem | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [inputKey, setInputKey] = useState(0);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -132,9 +133,7 @@ export default function ResumeAnalyzer() {
   }, []);
 
   const resetFileInput = () => {
-    if (fileInputRef.current) {
-      fileInputRef.current.value = "";
-    }
+    setInputKey(prev => prev + 1);
     setFile(null);
     setError(null);
   };
@@ -184,7 +183,8 @@ export default function ResumeAnalyzer() {
     setError(null);
 
     const formData = new FormData();
-    formData.append("file", file);
+    // Use third argument to ensure filename is passed correctly
+    formData.append("file", file, file.name);
 
     try {
       const res = await apiRequest("/resume/analyze", {
@@ -214,7 +214,10 @@ export default function ResumeAnalyzer() {
       resetFileInput();
 
     } catch (err: any) {
-      setError(err.message || "Failed to analyze resume. Please try again.");
+      console.error("Analysis execution error:", err);
+      // Stringify if it's an object to see the hidden fields
+      const detail = typeof err === 'object' ? JSON.stringify(err) : String(err);
+      setError(`Analysis failed: ${err.message || detail}`);
     } finally {
       setAnalyzing(false);
     }
@@ -342,7 +345,7 @@ export default function ResumeAnalyzer() {
                 <label className="group relative cursor-pointer inline-flex items-center gap-3 px-8 py-3.5 bg-slate-900 dark:bg-white rounded-2xl text-[11px] font-black uppercase tracking-[0.2em] text-white dark:text-slate-900 hover:translate-y-[-2px] active:translate-y-[1px] transition-all shadow-xl shadow-slate-200 dark:shadow-none">
                   Select Document
                   <ChevronRight size={14} className="group-hover:translate-x-1 transition-transform" />
-                  <input ref={fileInputRef} type="file" className="hidden" accept=".pdf,.docx,.doc" onChange={handleFileSelect} />
+                  <input key={inputKey} ref={fileInputRef} type="file" className="hidden" accept=".pdf,.docx,.doc" onChange={handleFileSelect} />
                 </label>
               </div>
             )}
