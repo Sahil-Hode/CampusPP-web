@@ -11,14 +11,12 @@ interface UploadCardProps {
   onUploadSuccess: () => void; // Triggered when "Initialize" is clicked
 }
 
-export default function UploadCard({ 
-  title, 
-  description = "Support CSV, XLS files up to 10MB",
+export default function UploadCard({
+  title,
   isActive,
   isCompleted,
   onUploadSuccess
 }: UploadCardProps) {
-  const [isDragging, setIsDragging] = useState(false);
   const [file, setFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
 
@@ -42,7 +40,7 @@ export default function UploadCard({
       ${isCompleted ? "bg-emerald-50/50 dark:bg-emerald-900/10 border-emerald-100 dark:border-emerald-800" : "bg-white dark:bg-zinc-900 border-slate-50 dark:border-zinc-800"}
       ${!isActive && !isCompleted ? "opacity-40 grayscale pointer-events-none" : "opacity-100"}
     `}>
-      
+
       {!isActive && !isCompleted && (
         <div className="absolute top-6 right-6 text-slate-300">
           <Lock size={18} />
@@ -59,7 +57,7 @@ export default function UploadCard({
         </p>
       </div>
 
-      <label 
+      <label
         className={`
           relative group cursor-pointer flex flex-col items-center justify-center 
           w-full h-48 rounded-[2rem] border-2 border-dashed transition-all
@@ -80,14 +78,14 @@ export default function UploadCard({
         </div>
       </label>
 
-      <button 
+      <button
         onClick={handleUpload}
         disabled={!file || isCompleted || !isActive}
         className={`w-full mt-6 py-4 rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] transition-all flex items-center justify-center gap-2
-          ${isCompleted 
-            ? "bg-emerald-500 text-white cursor-default" 
-            : file 
-              ? "bg-slate-900 dark:bg-[#63D2F3] text-white dark:text-slate-900 shadow-[0_5px_0_0_#000] active:translate-y-[4px] active:shadow-none" 
+          ${isCompleted
+            ? "bg-emerald-500 text-white cursor-default"
+            : file
+              ? "bg-slate-900 dark:bg-[#63D2F3] text-white dark:text-slate-900 shadow-[0_5px_0_0_#000] active:translate-y-[4px] active:shadow-none"
               : "bg-slate-100 text-slate-400 cursor-not-allowed"}
         `}
       >

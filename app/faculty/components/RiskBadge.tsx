@@ -6,9 +6,17 @@ interface RiskBadgeProps {
   level: "High" | "Medium" | "Low" | string;
 }
 
+interface RiskConfig {
+  bg: string;
+  text: string;
+  border: string;
+  icon: React.ComponentType<{ size?: number; strokeWidth?: number; className?: string }>;
+  dot: string;
+}
+
 export default function RiskBadge({ level }: RiskBadgeProps) {
   // Define styles based on Jnexia's premium palette
-  const config: any = {
+  const config: Record<string, RiskConfig> = {
     High: {
       bg: "bg-red-500/10",
       text: "text-red-600 dark:text-red-400",
@@ -51,7 +59,7 @@ export default function RiskBadge({ level }: RiskBadgeProps) {
       <span className="text-[10px] font-[1000] uppercase tracking-widest">
         {level} Risk
       </span>
-      
+
       {/* Icon */}
       <Icon size={12} strokeWidth={3} className="opacity-70" />
     </div>

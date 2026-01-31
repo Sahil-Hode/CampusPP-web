@@ -58,8 +58,9 @@ export default function InstituteLoginPage() {
 
       // 🚀 Redirect to faculty dashboard
       router.push("/faculty");
-    } catch (err: any) {
-      alert(err.message || "Institute login failed");
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Institute login failed";
+      alert(message);
     } finally {
       setLoading(false);
     }

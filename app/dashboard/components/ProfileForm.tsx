@@ -1,26 +1,28 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { User, Mail, ShieldCheck } from "lucide-react";
+import { User, ShieldCheck } from "lucide-react";
 
 export default function ProfileForm() {
   const [profile, setProfile] = useState({
-    name: "",
-    email: "",
+    name: "Student",
+    email: "student@jnexia.ai",
     goal: "Cloud Architecture",
     level: "intermediate",
   });
 
   useEffect(() => {
-    // 🔥 Load data saved during login
-    const name = localStorage.getItem("user_name");
-    const email = localStorage.getItem("user_email");
+    // Load data from localStorage after hydration
+    const storedName = localStorage.getItem("user_name");
+    const storedEmail = localStorage.getItem("user_email");
 
-    setProfile((prev) => ({
-      ...prev,
-      name: name || "Student",
-      email: email || "student@jnexia.ai",
-    }));
+    if (storedName || storedEmail) {
+      setProfile(prev => ({
+        ...prev,
+        name: storedName || prev.name,
+        email: storedEmail || prev.email,
+      }));
+    }
   }, []);
 
   const inputBase =

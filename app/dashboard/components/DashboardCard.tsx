@@ -1,7 +1,6 @@
 "use client";
 import Link from "next/link";
 import { LucideIcon, ArrowRight } from "lucide-react";
-import { motion } from "framer-motion";
 
 interface CardProps {
   title: string;
@@ -54,7 +53,7 @@ export default function DashboardCard({ title, description, href, icon: Icon, co
         hover:-translate-y-2
         ${style.hoverBorder}
       `}>
-        
+
         {/* 1. Icon Container */}
         <div className={`
           relative w-16 h-16 rounded-[1.5rem] flex items-center justify-center mb-10 
@@ -76,21 +75,21 @@ export default function DashboardCard({ title, description, href, icon: Icon, co
 
         {/* 3. Footer / CTA */}
         <div className="mt-10 flex items-center justify-between relative z-10">
-            <div className="flex items-center gap-3">
-                <div className={`w-2.5 h-2.5 rounded-full ${style.accent} shadow-lg ${style.glow} animate-pulse`} />
-                <span className="text-[10px] font-black uppercase tracking-[0.25em] text-slate-400 dark:text-slate-600 group-hover:text-slate-900 dark:group-hover:text-slate-300 transition-all">
-                    Launch Module
-                </span>
-            </div>
-            
-            <div className={`
+          <div className="flex items-center gap-3">
+            <div className={`w-2.5 h-2.5 rounded-full ${style.accent} shadow-lg ${style.glow} animate-pulse`} />
+            <span className="text-[10px] font-black uppercase tracking-[0.25em] text-slate-400 dark:text-slate-600 group-hover:text-slate-900 dark:group-hover:text-slate-300 transition-all">
+              Launch Module
+            </span>
+          </div>
+
+          <div className={`
                 w-10 h-10 rounded-2xl flex items-center justify-center bg-slate-50 dark:bg-slate-800/50 
                 text-slate-400 dark:text-slate-600 border border-transparent
                 group-hover:bg-slate-900 dark:group-hover:bg-white group-hover:text-white dark:group-hover:text-slate-900 
                 group-hover:rotate-[-45deg] transition-all duration-500
             `}>
-                <ArrowRight size={20} strokeWidth={3} />
-            </div>
+            <ArrowRight size={20} strokeWidth={3} />
+          </div>
         </div>
 
         {/* 4. Large Background Decorative Icon */}

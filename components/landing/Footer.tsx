@@ -12,7 +12,7 @@ export default function Footer() {
 
       <div className="max-w-7xl mx-auto px-8 pt-24 pb-12">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-16 mb-20">
-          
+
           {/* Brand & Mission Column */}
           <div className="lg:col-span-4 space-y-8">
             <div className="flex items-center gap-3 group cursor-pointer">
@@ -45,9 +45,9 @@ export default function Footer() {
             <div className="space-y-6">
               <h4 className="text-[11px] font-black text-slate-900 uppercase tracking-[0.25em]">Portals</h4>
               <ul className="space-y-4">
-                <FooterLink href="/login" label="Student Access" color="#63D2F3" />
-                <FooterLink href="/institute-login" label="Institute Portal" color="#63D2F3" />
-                <FooterLink href="#" label="Faculty Dashboard" color="#63D2F3" />
+                <FooterLink href="/login" label="Student Access" />
+                <FooterLink href="/institute-login" label="Institute Portal" />
+                <FooterLink href="#" label="Faculty Dashboard" />
               </ul>
             </div>
 
@@ -66,7 +66,7 @@ export default function Footer() {
                 <p className="text-[10px] font-black text-slate-400 uppercase leading-relaxed">
                   Have a question or need assistance?
                 </p>
-                <a 
+                <a
                   href="mailto:support@jnexia.com"
                   className="flex items-center gap-2 text-[10px] font-black text-[#63D2F3] uppercase tracking-widest hover:underline"
                 >
@@ -89,11 +89,11 @@ export default function Footer() {
               v1.0.4
             </p>
           </div>
-          
+
           <div className="flex items-center gap-8">
             <div className="flex items-center gap-2">
-               <div className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse" />
-               <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Systems Operational</span>
+              <div className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse" />
+              <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Systems Operational</span>
             </div>
           </div>
         </div>
@@ -102,11 +102,11 @@ export default function Footer() {
   );
 }
 
-function FooterLink({ href, label, color = "#94A3B8" }: { href: string; label: string; color?: string }) {
+function FooterLink({ href, label }: { href: string; label: string }) {
   return (
     <li>
-      <Link 
-        href={href} 
+      <Link
+        href={href}
         className="group flex items-center gap-1 text-[11px] font-bold text-slate-400 uppercase tracking-widest hover:text-slate-900 transition-all"
       >
         <span className="group-hover:mr-1 transition-all">{label}</span>

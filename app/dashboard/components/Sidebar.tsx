@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
   Brain, FileText, MessageCircle, LayoutDashboard,
-  GraduationCap, X, LogOut, ChevronRight, User
+  GraduationCap, LogOut, User
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -20,6 +20,7 @@ export default function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
   const [userName, setUserName] = useState("Student");
 
   useEffect(() => {
+    // Load name from localStorage after hydration
     const storedName = localStorage.getItem("user_name");
     if (storedName) setUserName(storedName);
   }, []);

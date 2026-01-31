@@ -7,12 +7,11 @@ import {
   User,
   ChevronDown,
   Sparkles,
-  Zap,
   Moon,
   Sun,
   X,
 } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
 import { useDashboardTheme } from "../../../components/ThemeProvider";
@@ -24,7 +23,12 @@ export default function DashboardHeader({
 }) {
   const [open, setOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
   const { theme, toggleTheme } = useDashboardTheme();
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const notifications = [
     {
@@ -84,9 +88,9 @@ export default function DashboardHeader({
 
         {/* RIGHT: Actions */}
         <div className="flex items-center gap-2 md:gap-3">
-          
+
           {/* Mobile Search Toggle */}
-          <button 
+          <button
             onClick={() => setSearchOpen(!searchOpen)}
             className="md:hidden p-3 rounded-xl bg-slate-50 dark:bg-zinc-800 text-slate-400 dark:text-zinc-300"
           >
@@ -98,18 +102,17 @@ export default function DashboardHeader({
             onClick={toggleTheme}
             className="p-3 rounded-xl md:rounded-2xl border-2 bg-white dark:bg-zinc-800 border-slate-50 dark:border-zinc-700 text-slate-500 dark:text-zinc-300 hover:text-[#63D2F3] transition-all"
           >
-            {theme === "dark" ? <Sun size={20} strokeWidth={3} /> : <Moon size={20} strokeWidth={3} />}
+            {mounted && (theme === "dark" ? <Sun size={20} strokeWidth={3} /> : <Moon size={20} strokeWidth={3} />)}
           </button>
 
           {/* NOTIFICATIONS */}
           <div className="relative">
             <button
               onClick={() => setOpen(!open)}
-              className={`p-3 rounded-xl md:rounded-2xl relative transition-all border-2 ${
-                open
-                  ? "bg-[#F6AD55] border-[#DD6B20] text-white shadow-lg"
-                  : "bg-white dark:bg-zinc-800 text-slate-400 dark:text-zinc-300 border-slate-50 dark:border-zinc-700 hover:text-[#F6AD55]"
-              }`}
+              className={`p-3 rounded-xl md:rounded-2xl relative transition-all border-2 ${open
+                ? "bg-[#F6AD55] border-[#DD6B20] text-white shadow-lg"
+                : "bg-white dark:bg-zinc-800 text-slate-400 dark:text-zinc-300 border-slate-50 dark:border-zinc-700 hover:text-[#F6AD55]"
+                }`}
             >
               <Bell size={20} strokeWidth={3} />
               {!open && notifications.length > 0 && (
@@ -122,14 +125,14 @@ export default function DashboardHeader({
               {open && (
                 <>
                   {/* Mobile Overlay Backdrop */}
-                  <motion.div 
+                  <motion.div
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
                     onClick={() => setOpen(false)}
                     className="fixed inset-0 bg-slate-900/20 backdrop-blur-sm z-40 lg:hidden"
                   />
-                  
+
                   <motion.div
                     initial={{ opacity: 0, y: 15, scale: 0.95 }}
                     animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -187,7 +190,7 @@ export default function DashboardHeader({
       {/* MOBILE SEARCH BAR (Toggled) */}
       <AnimatePresence>
         {searchOpen && (
-          <motion.div 
+          <motion.div
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: "auto", opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}

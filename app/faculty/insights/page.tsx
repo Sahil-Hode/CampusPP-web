@@ -1,12 +1,12 @@
 "use client";
 
-import { 
-  Users, 
-  AlertCircle, 
-  Activity, 
-  ShieldCheck, 
-  Lightbulb, 
-  TrendingDown, 
+import {
+  Users,
+  AlertCircle,
+  Activity,
+  ShieldCheck,
+  Lightbulb,
+  TrendingDown,
   CheckCircle2,
   ArrowUpRight,
   BrainCircuit
@@ -44,8 +44,8 @@ export default function FacultyInsightsPage() {
 
       {/* 2. KEY INSIGHTS - BENTO STYLE */}
       <div className="grid lg:grid-cols-2 gap-6">
-        <InsightBox 
-          title="Attendance Dynamics" 
+        <InsightBox
+          title="Attendance Dynamics"
           icon={TrendingDown}
           color="border-red-500/20"
           points={[
@@ -54,8 +54,8 @@ export default function FacultyInsightsPage() {
             "Peak absenteeism detected in Morning Lecture Slots",
           ]}
         />
-        <InsightBox 
-          title="Academic Momentum" 
+        <InsightBox
+          title="Academic Momentum"
           icon={ArrowUpRight}
           color="border-[#63D2F3]/20"
           points={[
@@ -67,14 +67,14 @@ export default function FacultyInsightsPage() {
       </div>
 
       {/* 3. AI RECOMMENDATIONS - THE "NEURAL" BOX */}
-      <motion.div 
+      <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         className="relative overflow-hidden bg-slate-900 dark:bg-zinc-900 rounded-[2.5rem] p-8 md:p-10 shadow-2xl border-2 border-[#63D2F3]/30"
       >
         {/* Glow Decor */}
         <div className="absolute -top-24 -right-24 w-64 h-64 bg-[#63D2F3]/20 blur-[100px] rounded-full" />
-        
+
         <div className="relative z-10">
           <div className="flex items-center gap-3 mb-8">
             <div className="p-3 bg-white/10 backdrop-blur-md rounded-2xl border border-white/10">
@@ -107,8 +107,16 @@ export default function FacultyInsightsPage() {
 
 /* --- HELPER COMPONENTS --- */
 
-function StatCard({ title, value, icon: Icon, color, trend }: any) {
-  const colors: any = {
+interface StatCardProps {
+  title: string;
+  value: string;
+  icon: React.ComponentType<{ size?: number; strokeWidth?: number; className?: string }>;
+  color: "cyan" | "red" | "amber" | "emerald";
+  trend?: "increase";
+}
+
+function StatCard({ title, value, icon: Icon, color, trend }: StatCardProps) {
+  const colors: Record<string, string> = {
     cyan: "text-[#63D2F3] bg-[#63D2F3]/10",
     red: "text-red-500 bg-red-500/10",
     amber: "text-amber-500 bg-amber-500/10",
@@ -129,7 +137,14 @@ function StatCard({ title, value, icon: Icon, color, trend }: any) {
   );
 }
 
-function InsightBox({ title, icon: Icon, points, color }: any) {
+interface InsightBoxProps {
+  title: string;
+  icon: React.ComponentType<{ size?: number; strokeWidth?: number }>;
+  points: string[];
+  color: string;
+}
+
+function InsightBox({ title, icon: Icon, points, color }: InsightBoxProps) {
   return (
     <div className={`bg-white dark:bg-zinc-900 p-8 rounded-[2.5rem] border-2 ${color} shadow-sm`}>
       <div className="flex items-center gap-3 mb-6">

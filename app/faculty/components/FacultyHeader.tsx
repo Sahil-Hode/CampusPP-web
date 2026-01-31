@@ -27,8 +27,11 @@ export default function FacultyHeader({ onOpenSidebar }: FacultyHeaderProps) {
   const router = useRouter();
 
   const profileRef = useRef<HTMLDivElement>(null);
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
+    setMounted(true);
+    // Load name from localStorage after hydration
     const storedName = localStorage.getItem("user_name");
     if (storedName) setName(storedName);
 
@@ -62,10 +65,9 @@ export default function FacultyHeader({ onOpenSidebar }: FacultyHeaderProps) {
         className={`
           mx-auto max-w-7xl flex items-center justify-between px-6 py-3
           rounded-[2rem] border-2 transition-all duration-300
-          ${
-            scrolled
-              ? "bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl border-white dark:border-zinc-800 shadow-lg"
-              : "bg-white dark:bg-zinc-900 border-slate-50 dark:border-zinc-800 shadow-sm"
+          ${scrolled
+            ? "bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl border-white dark:border-zinc-800 shadow-lg"
+            : "bg-white dark:bg-zinc-900 border-slate-50 dark:border-zinc-800 shadow-sm"
           }
         `}
       >
@@ -90,11 +92,11 @@ export default function FacultyHeader({ onOpenSidebar }: FacultyHeaderProps) {
             onClick={toggleTheme}
             className="p-3 rounded-2xl border-2 bg-white dark:bg-zinc-800 border-slate-50 dark:border-zinc-700 text-slate-500"
           >
-            {theme === "dark" ? (
+            {mounted && (theme === "dark" ? (
               <Sun size={18} strokeWidth={3} />
             ) : (
               <Moon size={18} strokeWidth={3} />
-            )}
+            ))}
           </button>
 
           {/* Profile */}
@@ -142,4 +144,3 @@ export default function FacultyHeader({ onOpenSidebar }: FacultyHeaderProps) {
     </header>
   );
 }
-    

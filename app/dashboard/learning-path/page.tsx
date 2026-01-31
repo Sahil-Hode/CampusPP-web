@@ -1,40 +1,121 @@
 "use client";
 
-import { useState } from "react";
-import { Brain, Sparkles, Map, ChevronRight, CheckCircle2, Zap, Rocket } from "lucide-react";
+import { useEffect, useState } from "react";
+import {
+  Brain,
+  Sparkles,
+  Map,
+  ChevronRight,
+  Clock,
+  Plus,
+  LayoutGrid,
+  Loader2,
+  AlertCircle,
+  Calendar,
+  Zap
+} from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { apiRequest } from "@/lib/api";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 
-export default function LearningPathPage() {
+// Type for a Learning Path Summary in the list
+type LearningPathSummary = {
+  _id: string;
+  topic: string;
+  status: string;
+  createdAt: string;
+  totalSteps?: number; // Optional if API returns it
+  completedSteps?: number;
+};
+
+export default function LearningPathList() {
+  const router = useRouter();
+  const [paths, setPaths] = useState<LearningPathSummary[]>([]);
+  const [loading, setLoading] = useState(true); // Initial load
+
+  // Generation State
   const [goal, setGoal] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState<string[] | null>(null);
+  const [generating, setGenerating] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  async function generatePath() {
-    if (!goal.trim()) return;
-    setLoading(true);
-    
+  /* ---------------------------
+      GET all learning paths
+  ---------------------------- */
+  async function fetchPaths() {
     try {
-      await new Promise((resolve) => setTimeout(resolve, 2000));
-      setResult([
-        "Mastering UI/UX Fundamentals",
-        "Deep Dive into React & Next.js",
-        "Backend Architecture with Node.js",
-        "Database Design & Optimization",
-        "Cloud Deployment & Scaling"
-      ]);
+      setLoading(true);
+      const res = await apiRequest("/learning", { method: "GET" });
+
+      let data = res.data;
+      // Handle various response wrappers
+      if (data && !Array.isArray(data) && data.data) {
+        data = data.data;
+      } else if (data && !Array.isArray(data) && (data.paths || data.courses)) {
+        data = data.paths || data.courses;
+      }
+
+      if (Array.isArray(data)) {
+        setPaths(data);
+      } else {
+        setPaths([]);
+      }
     } catch (err) {
-      console.error(err);
+      console.error("Failed to fetch paths", err);
+      // Don't show critical error to user, just empty list
+      setPaths([]);
     } finally {
       setLoading(false);
     }
   }
 
+  useEffect(() => {
+    fetchPaths();
+  }, []);
+
+  /* ---------------------------
+      POST generate learning path
+  ---------------------------- */
+  async function generatePath() {
+    if (!goal.trim()) return;
+
+    setGenerating(true);
+    setError(null);
+
+    try {
+      const res = await apiRequest("/learning/generate", {
+        method: "POST",
+        body: JSON.stringify({
+          topic: goal,
+        }),
+      });
+
+      const newPath = res.data;
+
+      // If success, user probably wants to see it immediately
+      // Option A: Link to it
+      if (newPath?._id) {
+        router.push(`/dashboard/learning-path/${newPath._id}`);
+      } else {
+        // Option B: Refresh list
+        await fetchPaths();
+        setGoal("");
+      }
+
+    } catch (err: unknown) {
+      console.error(err);
+      setError("Failed to generate learning path. Please try again.");
+    } finally {
+      setGenerating(false);
+    }
+  }
+
   return (
-    <div className="max-w-5xl mx-auto space-y-10 pb-20 transition-colors duration-500">
-      {/* 1. Header */}
+    <div className="max-w-6xl mx-auto space-y-10 pb-20 px-4">
+      {/* Header */}
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
         <div>
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
             className="flex items-center gap-2 mb-2"
@@ -42,118 +123,131 @@ export default function LearningPathPage() {
             <div className="p-1.5 bg-[#F6AD55]/10 rounded-lg text-[#F6AD55]">
               <Map size={16} strokeWidth={3} />
             </div>
-            <span className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.3em]">Strategy Engine</span>
+            <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">
+              Strategy Engine
+            </span>
           </motion.div>
-          <h2 className="text-4xl font-black text-slate-900 dark:text-white tracking-tighter leading-tight">AI Learning Path</h2>
-          <p className="text-slate-500 dark:text-slate-400 font-bold text-sm mt-1">Map out your journey to career mastery.</p>
+
+          <h2 className="text-4xl font-black tracking-tighter text-slate-900 dark:text-white uppercase">
+            Start a New <span className="text-[#F6AD55]">Journey</span>
+          </h2>
+          <p className="text-slate-500 font-bold text-sm mt-1">
+            Generate AI-powered roadmaps or continue your existing ones.
+          </p>
         </div>
       </div>
 
-      {/* 2. Input Section */}
-      <div className="bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] border-2 border-slate-50 dark:border-slate-800 shadow-[0_8px_30px_rgb(0,0,0,0.04)] flex flex-col md:flex-row gap-4 items-end relative overflow-hidden transition-all">
-        <div className="flex-1 w-full space-y-2 relative z-10">
-          <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Your Career Objective</label>
-          <div className="relative group">
-            <Brain className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-300 dark:text-slate-600 group-focus-within:text-[#F6AD55] transition-colors" size={20} />
+      {/* Generator Section */}
+      <div className="bg-white dark:bg-zinc-950 p-8 rounded-[2.5rem] border-2 border-slate-100 dark:border-zinc-900 shadow-sm flex flex-col md:flex-row gap-4 items-end relative overflow-hidden">
+        <div className="flex-1 w-full space-y-2 z-10">
+          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
+            What do you want to learn?
+          </label>
+
+          <div className="relative">
+            <Brain
+              className="absolute left-5 top-1/2 -translate-y-1/2 text-[#F6AD55]"
+              size={20}
+            />
             <input
-              className="w-full bg-slate-50 dark:bg-slate-800/50 border-2 border-transparent rounded-2xl py-4 pl-14 pr-5 text-sm font-bold text-slate-700 dark:text-slate-100 outline-none focus:border-[#F6AD55]/20 focus:bg-white dark:focus:bg-slate-800 transition-all placeholder:text-slate-300 dark:placeholder:text-slate-600"
-              placeholder="e.g. Senior Full Stack Engineer"
+              className="w-full bg-slate-50 dark:bg-zinc-900 border-2 border-transparent focus:border-[#F6AD55] rounded-2xl py-4 pl-14 pr-5 text-sm font-bold outline-none transition-all dark:text-white"
+              placeholder="e.g. Quantum Physics, React Development, Machine Learning"
               value={goal}
               onChange={(e) => setGoal(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && generatePath()}
             />
           </div>
         </div>
-        <button 
-          onClick={generatePath} 
-          disabled={loading}
-          className="w-full md:w-auto bg-[#F6AD55] text-white px-8 py-4 rounded-2xl font-black text-xs uppercase tracking-widest shadow-[0_5px_0_0_#DD6B20] hover:translate-y-[2px] hover:shadow-[0_2px_0_0_#DD6B20] active:translate-y-[4px] active:shadow-none transition-all flex items-center justify-center gap-2 disabled:opacity-50 relative z-10"
+
+        <button
+          onClick={generatePath}
+          disabled={generating || !goal.trim()}
+          className="bg-[#F6AD55] hover:bg-[#ed9a3d] text-white px-8 py-4 rounded-2xl font-black text-xs uppercase tracking-widest flex items-center gap-2 disabled:opacity-50 transition-all z-10 whitespace-nowrap"
         >
-          {loading ? "Analyzing..." : "Generate Path"}
-          <Sparkles size={16} className={loading ? "animate-spin" : "fill-current text-white/80"} />
+          {generating ? "Generating..." : "Create Roadmap"}
+          <Sparkles size={16} className={generating ? "animate-spin" : ""} />
         </button>
-        
-        {/* Background Decor */}
-        <Zap size={120} className="absolute -right-8 -bottom-8 text-slate-50 dark:text-slate-800/50 opacity-50 -rotate-12 pointer-events-none" />
+
+        <Zap
+          size={120}
+          className="absolute -right-8 -bottom-8 opacity-[0.03] dark:opacity-[0.05] pointer-events-none"
+        />
       </div>
 
-      {/* 3. Results Roadmap */}
+      {/* Error Message */}
       <AnimatePresence>
-        {result && (
-          <motion.div 
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="space-y-8"
+        {error && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="flex items-center gap-2 justify-center p-4 bg-red-50 dark:bg-red-500/10 border border-red-100 dark:border-red-500/20 rounded-2xl text-red-600 text-xs font-bold"
           >
-            <div className="flex items-center gap-4 px-4">
-              <div className="h-[2px] flex-1 bg-slate-100 dark:bg-slate-800" />
-              <div className="flex items-center gap-2 bg-slate-50 dark:bg-slate-900 px-4 py-1.5 rounded-full border border-slate-100 dark:border-slate-800">
-                <Rocket size={14} className="text-[#F6AD55]" />
-                <h3 className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em]">Personalized Roadmap</h3>
-              </div>
-              <div className="h-[2px] flex-1 bg-slate-100 dark:bg-slate-800" />
-            </div>
-
-            <div className="relative space-y-4">
-              {/* Vertical Connector Line */}
-              <div className="absolute left-10 top-0 bottom-0 w-1 bg-slate-50 dark:bg-slate-800 rounded-full" />
-
-              {result.map((step, index) => (
-                <motion.div 
-                  key={index}
-                  initial={{ opacity: 0, x: -10 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: index * 0.1 }}
-                  className="group relative flex items-center gap-6"
-                >
-                  {/* Step Marker */}
-                  <div className={`
-                    w-16 h-16 rounded-[1.5rem] flex flex-col items-center justify-center z-10 transition-all duration-300
-                    ${index === 0 
-                      ? 'bg-[#F6AD55] text-white shadow-[0_6px_0_0_#DD6B20]' 
-                      : 'bg-white dark:bg-slate-900 text-slate-300 dark:text-slate-600 border-2 border-slate-50 dark:border-slate-800 group-hover:border-[#F6AD55]/30 group-hover:text-[#F6AD55]'}
-                  `}>
-                    <span className="text-[10px] font-black leading-none mb-1 uppercase">Step</span>
-                    <span className="text-xl font-black leading-none">{index + 1}</span>
-                  </div>
-                  
-                  {/* Step Content */}
-                  <div className="flex-1 bg-white dark:bg-slate-900 border-2 border-slate-50 dark:border-slate-800 p-6 rounded-[2rem] shadow-sm group-hover:shadow-md dark:group-hover:border-[#F6AD55]/20 transition-all flex items-center justify-between">
-                    <div>
-                      <p className={`text-base font-black tracking-tight ${index === 0 ? 'text-slate-900 dark:text-white' : 'text-slate-700 dark:text-slate-300'}`}>
-                        {step}
-                      </p>
-                      {index === 0 && (
-                        <div className="flex items-center gap-1.5 mt-1">
-                          <CheckCircle2 size={12} className="text-[#F6AD55]" />
-                          <span className="text-[9px] font-black text-[#F6AD55] uppercase tracking-widest">Immediate Priority</span>
-                        </div>
-                      )}
-                    </div>
-
-                    <motion.button 
-                      whileHover={{ x: 3 }}
-                      className="w-10 h-10 bg-slate-50 dark:bg-slate-800 rounded-xl flex items-center justify-center text-slate-300 dark:text-slate-600 group-hover:bg-[#F6AD55] group-hover:text-white transition-all shadow-sm"
-                    >
-                      <ChevronRight size={18} strokeWidth={3} />
-                    </motion.button>
-                  </div>
-                </motion.div>
-              ))}
-            </div>
-
-            {/* Final Goal Node */}
-            <div className="flex justify-center pt-6">
-               <motion.div 
-                 whileHover={{ scale: 1.05 }}
-                 className="px-8 py-4 bg-slate-900 dark:bg-[#F6AD55] text-white dark:text-slate-900 rounded-2xl font-black text-[10px] uppercase tracking-[0.3em] flex items-center gap-3 shadow-xl"
-               >
-                  <div className="w-2 h-2 rounded-full bg-[#F6AD55] dark:bg-white animate-ping" />
-                  Career Destination Reached
-               </motion.div>
-            </div>
+            <AlertCircle size={14} />
+            {error}
           </motion.div>
         )}
       </AnimatePresence>
+
+      <div className="h-px bg-slate-200 dark:bg-zinc-800 w-full" />
+
+      {/* My Learning Paths Grid */}
+      <div className="space-y-6">
+        <div className="flex items-center gap-3">
+          <LayoutGrid size={20} className="text-slate-400" />
+          <h3 className="text-xl font-[1000] text-slate-900 dark:text-white uppercase tracking-tight">
+            My Learning Paths
+          </h3>
+        </div>
+
+        {loading ? (
+          <div className="flex items-center justify-center py-20 text-slate-400">
+            <Loader2 className="animate-spin w-8 h-8 opacity-50" />
+          </div>
+        ) : paths.length === 0 ? (
+          <div className="text-center py-20 bg-slate-50 dark:bg-zinc-900/50 rounded-[2rem] border-2 border-dashed border-slate-200 dark:border-zinc-800">
+            <p className="text-slate-400 font-bold text-sm">No learning paths found. Create one above!</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {paths.map((path, i) => (
+              <motion.div
+                key={path._id}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: i * 0.05 }}
+                className="bg-white dark:bg-zinc-900 border-2 border-slate-100 dark:border-zinc-800 p-6 rounded-[2rem] flex flex-col justify-between hover:border-[#F6AD55] dark:hover:border-[#F6AD55] transition-colors group shadow-sm hover:shadow-md"
+              >
+                <div>
+                  <div className="flex items-start justify-between mb-4">
+                    <span className="bg-[#F6AD55]/10 text-[#F6AD55] px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider">
+                      {path.status || "In Progress"}
+                    </span>
+                    <div className="p-2 bg-slate-50 dark:bg-zinc-800 rounded-full text-slate-400">
+                      <Brain size={18} />
+                    </div>
+                  </div>
+
+                  <h4 className="text-lg font-[1000] text-slate-900 dark:text-white leading-tight mb-2 line-clamp-2">
+                    {path.topic}
+                  </h4>
+
+                  <div className="flex items-center gap-2 text-slate-400 text-xs font-bold mb-6">
+                    <Calendar size={14} />
+                    {path.createdAt ? new Date(path.createdAt).toLocaleDateString() : 'Recent'}
+                  </div>
+                </div>
+
+                <Link href={`/dashboard/learning-path/${path._id}`} className="w-full">
+                  <button className="w-full py-4 bg-slate-50 dark:bg-zinc-950 rounded-2xl flex items-center justify-center gap-2 text-[11px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-400 group-hover:bg-[#F6AD55] group-hover:text-white transition-all">
+                    Continue Path
+                    <ChevronRight size={14} strokeWidth={3} />
+                  </button>
+                </Link>
+              </motion.div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

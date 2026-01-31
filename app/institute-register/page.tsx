@@ -68,8 +68,8 @@ export default function InstituteRegisterPage() {
 
       // 🚀 Go to faculty dashboard
       router.push("/faculty");
-    } catch (err: any) {
-      alert(err.message || "Institute registration failed");
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : "Institute registration failed");
     } finally {
       setLoading(false);
     }
