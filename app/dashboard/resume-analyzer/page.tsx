@@ -36,6 +36,11 @@ type AnalysisItem = {
   fileSizeKB?: string;
   status?: string;
   analysis: APIAnalysisDetail;
+  summary?: {
+    strengthsCount: number;
+    improvementsCount: number;
+    skillsSuggested: number;
+  };
   createdAt: string;
 };
 
@@ -133,6 +138,7 @@ export default function ResumeAnalyzer() {
         fileName: file.name,
         fileSizeKB: (file.size / 1024).toFixed(1),
         createdAt: rawData.createdAt || new Date().toISOString(),
+        summary: rawData.summary,
         analysis: rawData.analysis || {
           atsScore: rawData.atsScore || 0,
           overallRating: rawData.overallRating || "N/A",
@@ -178,8 +184,10 @@ export default function ResumeAnalyzer() {
         const fullAnalysisValue = fullData.analysis || {};
 
         // Update local state with full details
-        const updatedItem = {
+        const updatedItem: AnalysisItem = {
           ...item,
+          createdAt: fullData.createdAt || fullData.processedAt || item.createdAt,
+          summary: fullData.summary || item.summary,
           analysis: {
             ...item.analysis,
             ...fullAnalysisValue
@@ -360,11 +368,23 @@ export default function ResumeAnalyzer() {
                 {/* Score Header */}
                 <div className="flex flex-col md:flex-row items-center justify-between gap-8 mb-12">
                   <div>
-                    <div className="inline-flex items-center gap-2 px-3 py-1 bg-slate-100 dark:bg-zinc-800 rounded-full text-xs font-bold text-slate-500 mb-4">
-                      <FileCheck size={14} />
-                      Analysis Report
+                    <div className="flex flex-wrap gap-3 mt-4">
+                      <div className="inline-flex items-center gap-2 px-3 py-1 bg-slate-100 dark:bg-zinc-800 rounded-full text-[10px] font-black uppercase text-slate-500">
+                        <FileCheck size={12} />
+                        Analysis Report
+                      </div>
+                      {selectedAnalysis.summary && (
+                        <>
+                          <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-green-500/10 rounded-full text-[10px] font-black uppercase text-green-500">
+                            {selectedAnalysis.summary.strengthsCount} Strengths
+                          </div>
+                          <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-orange-500/10 rounded-full text-[10px] font-black uppercase text-orange-500">
+                            {selectedAnalysis.summary.improvementsCount} Fixes
+                          </div>
+                        </>
+                      )}
                     </div>
-                    <h1 className="text-3xl font-black text-slate-900 dark:text-white leading-tight">
+                    <h1 className="text-3xl font-black text-slate-900 dark:text-white leading-tight mt-4">
                       ATS Score
                     </h1>
                     <p className="text-sm font-bold text-slate-400 mt-2">
