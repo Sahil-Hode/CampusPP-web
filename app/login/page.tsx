@@ -9,6 +9,8 @@ import {
   ShieldCheck,
   Contact2,
   Loader2,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -17,6 +19,7 @@ export default function LoginPage() {
 
   const [studentId, setStudentId] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
 
   const handleLogin = async () => {
@@ -74,7 +77,10 @@ export default function LoginPage() {
             
             {/* Student ID Field */}
             <div className="space-y-2">
-              <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest ml-4">
+              <label
+                htmlFor="studentId"
+                className="text-[11px] font-black text-slate-400 uppercase tracking-widest ml-4"
+              >
                 Student ID
               </label>
               <div className="relative group">
@@ -82,6 +88,9 @@ export default function LoginPage() {
                 <div className="relative">
                   <Contact2 className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-300 transition-colors group-focus-within:text-[#63D2F3]" />
                   <input
+                    id="studentId"
+                    name="studentId"
+                    autoComplete="username"
                     value={studentId}
                     onChange={(e) => setStudentId(e.target.value)}
                     placeholder="STU001"
@@ -93,7 +102,10 @@ export default function LoginPage() {
 
             {/* Password Field */}
             <div className="space-y-2">
-              <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest ml-4">
+              <label
+                htmlFor="password"
+                className="text-[11px] font-black text-slate-400 uppercase tracking-widest ml-4"
+              >
                 Password
               </label>
               <div className="relative group">
@@ -101,12 +113,24 @@ export default function LoginPage() {
                 <div className="relative">
                   <ShieldCheck className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-300 transition-colors group-focus-within:text-[#63D2F3]" />
                   <input
-                    type="password"
+                    id="password"
+                    name="password"
+                    autoComplete="current-password"
+                    type={showPassword ? "text" : "password"}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="••••••••"
-                    className="w-full bg-slate-50 border-2 border-transparent focus:border-slate-100 focus:bg-white rounded-[1.8rem] py-5 pl-16 pr-8 font-bold text-slate-700 transition-all outline-none"
+                    className="w-full bg-slate-50 border-2 border-transparent focus:border-slate-100 focus:bg-white rounded-[1.8rem] py-5 pl-16 pr-16 font-bold text-slate-700 transition-all outline-none"
                   />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword((prev) => !prev)}
+                    aria-label={showPassword ? "Hide password" : "Show password"}
+                    aria-pressed={showPassword}
+                    className="absolute right-6 top-1/2 -translate-y-1/2 text-slate-300 hover:text-[#63D2F3] transition-colors"
+                  >
+                    {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                  </button>
                 </div>
               </div>
             </div>
