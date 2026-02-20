@@ -58,7 +58,7 @@ export default function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
               <div className="w-11 h-11 bg-[#63D2F3] rounded-2xl flex items-center justify-center shadow-[0_5px_0_0_#48BBDB]">
                 <GraduationCap className="text-white w-7 h-7" />
               </div>
-              <span className="text-2xl font-black tracking-tighter text-slate-800 dark:text-white uppercase">Jnexia</span>
+              <span className="text-2xl font-black tracking-tighter text-slate-800 dark:text-white uppercase">Campus ++</span>
             </Link>
           </div>
 
@@ -78,7 +78,7 @@ export default function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
           </nav>
 
           <div className="p-6 space-y-3 shrink-0">
-            <div className="px-4 py-4 bg-slate-50 dark:bg-zinc-900 rounded-[2rem] border-2 border-slate-100 dark:border-zinc-800 flex items-center gap-3">
+            {/* <div className="px-4 py-4 bg-slate-50 dark:bg-zinc-900 rounded-[2rem] border-2 border-slate-100 dark:border-zinc-800 flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl bg-[#F687B3] flex items-center justify-center text-white font-black text-sm">
                 {userName.charAt(0).toUpperCase()}
               </div>
@@ -86,7 +86,7 @@ export default function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
                 <p className="text-xs font-black text-slate-800 dark:text-white truncate uppercase">{userName}</p>
                 <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Student</p>
               </div>
-            </div>
+            </div> */}
 
             <button onClick={handleLogout} className="w-full flex items-center gap-3 px-6 py-4 rounded-2xl text-slate-400 hover:text-red-500 transition-all font-black text-[10px] uppercase tracking-widest">
               <LogOut size={18} strokeWidth={3} />
