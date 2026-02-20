@@ -1,13 +1,12 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import {
   Upload,
   ShieldCheck,
   AlertCircle,
   FileCheck,
   Sparkles,
-  X,
   CheckCircle2,
   Trash2,
   Clock,
@@ -44,7 +43,7 @@ type APIAnalysisDetail = {
 type AnalysisItem = {
   _id: string;
   fileName?: string;
-  fileSizeKB?: string;
+  fileSizeKB?: string | number;
   status?: string;
   analysis: APIAnalysisDetail;
   summary?: {
@@ -53,6 +52,64 @@ type AnalysisItem = {
     skillsSuggested: number;
   };
   createdAt: string;
+};
+
+type ApiErrorPayload = {
+  message?: string;
+  code?: string;
+  status?: string;
+  statusCode?: number;
+  error?: string;
+  details?: string;
+};
+
+const getErrorMessage = (err: unknown) => {
+  if (err instanceof Error) return err.message;
+  if (typeof err === "object" && err !== null) {
+    const payload = err as ApiErrorPayload;
+    if (typeof payload.message === "string" && payload.message.trim()) {
+      return payload.message;
+    }
+    if (typeof payload.details === "string" && payload.details.trim()) {
+      return payload.details;
+    }
+    if (typeof payload.error === "string" && payload.error.trim()) {
+      return payload.error;
+    }
+    if (typeof payload.statusCode === "number") {
+      return `Request failed with status ${payload.statusCode}`;
+    }
+  }
+  try {
+    if (typeof err === "object" && err !== null) {
+      return JSON.stringify(err);
+    }
+  } catch {
+    // no-op
+  }
+  return "Request failed";
+};
+
+const isMissingFileError = (err: unknown) => {
+  if (typeof err !== "object" || err === null) return false;
+  const payload = err as ApiErrorPayload;
+  return (
+    payload.code === "MISSING_FILE" ||
+    /no file uploaded|missing file/i.test(payload.message || "")
+  );
+};
+
+const isRetryableUploadFieldError = (err: unknown) => {
+  if (isMissingFileError(err)) return true;
+  if (typeof err !== "object" || err === null) return false;
+  const payload = err as ApiErrorPayload;
+  if (typeof payload.statusCode === "number" && payload.statusCode >= 500) {
+    return true;
+  }
+  const text = `${payload.message || ""} ${payload.error || ""} ${
+    payload.details || ""
+  }`.toLowerCase();
+  return /unexpected field|no file|req\.file|reading 'buffer'|reading "buffer"|internal server error/i.test(text);
 };
 
 // --- COMPONENTS ---
@@ -128,21 +185,19 @@ export default function ResumeAnalyzer() {
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
-    fetchHistory();
-  }, []);
-
   const resetFileInput = () => {
     setInputKey(prev => prev + 1);
     setFile(null);
     setError(null);
   };
 
-  async function fetchHistory() {
+  const fetchHistory = useCallback(async () => {
     try {
       setLoadingHistory(true);
-      const res = await apiRequest("/resume/", { method: "GET" });
-      const list = res.data?.analyses || [];
+      const res = await apiRequest("/resume", { method: "GET" }) as {
+        data?: { analyses?: AnalysisItem[] };
+      };
+      const list = Array.isArray(res.data?.analyses) ? res.data.analyses : [];
       setAnalyses(list);
       if (list.length > 0 && !selectedAnalysis) {
         setSelectedAnalysis(list[0]);
@@ -152,17 +207,22 @@ export default function ResumeAnalyzer() {
     } finally {
       setLoadingHistory(false);
     }
-  }
+  }, [selectedAnalysis]);
+
+  useEffect(() => {
+    fetchHistory();
+  }, [fetchHistory]);
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selected = e.target.files?.[0];
     setError(null);
     if (selected) {
-      const isPDF = selected.type === "application/pdf" || selected.name.endsWith(".pdf");
-      const isWord = selected.type.includes("word") || selected.name.endsWith(".docx") || selected.name.endsWith(".doc");
+      const lowerName = selected.name.toLowerCase();
+      const isPDF =
+        selected.type === "application/pdf" || lowerName.endsWith(".pdf");
 
-      if (!isPDF && !isWord) {
-        setError("Please upload a PDF or Word document.");
+      if (!isPDF) {
+        setError("Please upload a PDF file only.");
         resetFileInput();
         return;
       }
@@ -182,26 +242,55 @@ export default function ResumeAnalyzer() {
     setAnalyzing(true);
     setError(null);
 
-    const formData = new FormData();
-    // Use third argument to ensure filename is passed correctly
-    formData.append("file", file, file.name);
-
     try {
-      const res = await apiRequest("/resume/analyze", {
-        method: "POST",
-        body: formData,
-      });
+      const uploadAnalysis = async (fieldName: string) => {
+        const formData = new FormData();
+        formData.append(fieldName, file, file.name);
+        return await apiRequest("/resume/analyze", {
+          method: "POST",
+          body: formData,
+        });
+      };
 
-      const rawData = res.data || {};
+      const uploadFieldCandidates = [
+        "pdf",
+        "file",
+        "resume",
+        "resumeFile",
+        "document",
+        "cv",
+      ];
+      let res: unknown = null;
+      let lastError: unknown = null;
+
+      for (const fieldName of uploadFieldCandidates) {
+        try {
+          res = await uploadAnalysis(fieldName);
+          lastError = null;
+          break;
+        } catch (attemptErr) {
+          lastError = attemptErr;
+          if (!isRetryableUploadFieldError(attemptErr)) {
+            throw attemptErr;
+          }
+        }
+      }
+
+      if (lastError) throw lastError;
+
+      const rawData = (res as { data?: Record<string, unknown> }).data || {};
       const newAnalysis: AnalysisItem = {
-        _id: rawData.analysisId || rawData._id || Date.now().toString(),
+        _id:
+          String(rawData.analysisId || "") ||
+          String(rawData._id || "") ||
+          Date.now().toString(),
         fileName: file.name,
         fileSizeKB: (file.size / 1024).toFixed(1),
-        createdAt: rawData.createdAt || new Date().toISOString(),
-        summary: rawData.summary,
-        analysis: rawData.analysis || {
-          atsScore: rawData.atsScore || 0,
-          overallRating: rawData.overallRating || "N/A",
+        createdAt: String(rawData.createdAt || new Date().toISOString()),
+        summary: rawData.summary as AnalysisItem["summary"],
+        analysis: (rawData.analysis as APIAnalysisDetail) || {
+          atsScore: Number(rawData.atsScore || 0),
+          overallRating: String(rawData.overallRating || "N/A"),
           mainStrengths: [],
           criticalImprovements: [],
           keywordOptimization: [],
@@ -213,11 +302,9 @@ export default function ResumeAnalyzer() {
       setSelectedAnalysis(newAnalysis);
       resetFileInput();
 
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Analysis execution error:", err);
-      // Stringify if it's an object to see the hidden fields
-      const detail = typeof err === 'object' ? JSON.stringify(err) : String(err);
-      setError(`Analysis failed: ${err.message || detail}`);
+      setError(`Analysis failed: ${getErrorMessage(err)}`);
     } finally {
       setAnalyzing(false);
     }
@@ -231,7 +318,16 @@ export default function ResumeAnalyzer() {
 
     try {
       setSelectedAnalysis(item);
-      const res = await apiRequest(`/resume/${item._id}`, { method: "GET" });
+      const res = await apiRequest(`/resume/${item._id}`, { method: "GET" }) as {
+        data?: {
+          analysis?: {
+            createdAt?: string;
+            processedAt?: string;
+            summary?: AnalysisItem["summary"];
+            analysis?: APIAnalysisDetail;
+          };
+        };
+      };
       const fullData = res.data?.analysis;
 
       if (fullData) {
@@ -264,8 +360,8 @@ export default function ResumeAnalyzer() {
       if (selectedAnalysis?._id === id) {
         setSelectedAnalysis(updated[0] || null);
       }
-    } catch (err) {
-      alert("Failed to delete analysis.");
+    } catch (err: unknown) {
+      alert(`Failed to delete analysis: ${getErrorMessage(err)}`);
     }
   };
 
@@ -340,12 +436,12 @@ export default function ResumeAnalyzer() {
                 </div>
                 <div className="space-y-2">
                   <h3 className="text-xl font-black text-slate-900 dark:text-white">Professional Review</h3>
-                  <p className="text-xs font-bold text-slate-400 px-8">Drop your PDF or DOCX file here for deep AI analysis (Max 5MB)</p>
+                  <p className="text-xs font-bold text-slate-400 px-8">Drop your PDF file here for deep AI analysis (Max 5MB)</p>
                 </div>
                 <label className="group relative cursor-pointer inline-flex items-center gap-3 px-8 py-3.5 bg-slate-900 dark:bg-white rounded-2xl text-[11px] font-black uppercase tracking-[0.2em] text-white dark:text-slate-900 hover:translate-y-[-2px] active:translate-y-[1px] transition-all shadow-xl shadow-slate-200 dark:shadow-none">
                   Select Document
                   <ChevronRight size={14} className="group-hover:translate-x-1 transition-transform" />
-                  <input key={inputKey} ref={fileInputRef} type="file" className="hidden" accept=".pdf,.docx,.doc" onChange={handleFileSelect} />
+                  <input key={inputKey} ref={fileInputRef} type="file" className="hidden" accept=".pdf,application/pdf" onChange={handleFileSelect} />
                 </label>
               </div>
             )}
@@ -654,5 +750,3 @@ export default function ResumeAnalyzer() {
     </div>
   );
 }
-
-

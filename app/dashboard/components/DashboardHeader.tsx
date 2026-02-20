@@ -11,7 +11,7 @@ export default function DashboardHeader({
   onOpenSidebar: () => void;
 }) {
   const [open, setOpen] = useState(false);
-  const { theme, toggleTheme } = useDashboardTheme();
+  const { toggleTheme } = useDashboardTheme();
 
   const notifications = [
     {
@@ -43,11 +43,8 @@ export default function DashboardHeader({
           onClick={toggleTheme}
           className="p-2.5 md:p-3 rounded-xl md:rounded-2xl border-2 bg-white dark:bg-zinc-800 border-slate-50 dark:border-zinc-700 text-slate-500 dark:text-zinc-300 hover:text-[#63D2F3] transition-all"
         >
-          {theme === "dark" ? (
-            <Sun size={20} strokeWidth={3} />
-          ) : (
-            <Moon size={20} strokeWidth={3} />
-          )}
+          <Sun size={20} strokeWidth={3} className="hidden dark:block" />
+          <Moon size={20} strokeWidth={3} className="block dark:hidden" />
         </button>
 
         <div className="relative">

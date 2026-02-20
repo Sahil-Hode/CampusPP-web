@@ -16,11 +16,16 @@ export async function apiRequest(
     body: options.body,
   });
 
-  let data;
-  try {
-    data = await res.json();
-  } catch (e) {
-    data = { message: "Invalid JSON response" };
+  const rawText = await res.text();
+  let data: unknown = null;
+  if (rawText) {
+    try {
+      data = JSON.parse(rawText);
+    } catch {
+      data = { message: rawText };
+    }
+  } else {
+    data = { message: `Request failed with status ${res.status}` };
   }
 
   if (!res.ok) {
@@ -35,7 +40,10 @@ export async function apiRequest(
       }
     }
 
-    throw data;
+    if (typeof data === "object" && data !== null) {
+      throw { statusCode: res.status, ...(data as object) };
+    }
+    throw { statusCode: res.status, message: String(data) };
   }
 
   return data;
