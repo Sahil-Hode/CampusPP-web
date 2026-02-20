@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
@@ -17,13 +17,10 @@ interface SidebarProps {
 export default function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
-  const [userName, setUserName] = useState("Student");
-
-  useEffect(() => {
-    // Load name from localStorage after hydration
-    const storedName = localStorage.getItem("user_name");
-    if (storedName) setUserName(storedName);
-  }, []);
+  const [userName] = useState(() => {
+    if (typeof window === "undefined") return "Student";
+    return localStorage.getItem("user_name") || "Student";
+  });
 
   const handleLogout = () => {
     localStorage.clear();
@@ -34,6 +31,9 @@ export default function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
     { name: "Dashboard", icon: LayoutDashboard, path: "/dashboard", activeColor: "bg-[#63D2F3]" },
     { name: "Learning Path", icon: Brain, path: "/dashboard/learning-path", activeColor: "bg-[#F6AD55]" },
     { name: "AI Chatbot", icon: MessageCircle, path: "/dashboard/chatbot", activeColor: "bg-[#B794F4]" },
+    { name: "Resume Analyzer", icon: FileText, path: "/dashboard/resume-analyzer", activeColor: "bg-[#68D391]" },
+    { name: "3D Live Mentor Bot", icon: MessageCircle, path: "/dashboard/3d-live-mentor-bot", activeColor: "bg-[#4FD1C5]" },
+    { name: "Mock Interview", icon: Brain, path: "/dashboard/mock-interview", activeColor: "bg-[#F6E05E]" },
     { name: "My Profile", icon: User, path: "/dashboard/profile", activeColor: "bg-[#F687B3]" },
   ];
 
