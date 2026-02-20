@@ -1,11 +1,15 @@
 "use client";
 
-import { Bell, Moon, Sun, X } from "lucide-react";
+import { Bell, Menu, Moon, Sun, X } from "lucide-react";
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useDashboardTheme } from "../../../components/ThemeProvider";
 
-export default function DashboardHeader() {
+export default function DashboardHeader({
+  onOpenSidebar,
+}: {
+  onOpenSidebar: () => void;
+}) {
   const [open, setOpen] = useState(false);
   const { theme, toggleTheme } = useDashboardTheme();
 
@@ -26,7 +30,14 @@ export default function DashboardHeader() {
 
   return (
     <header className="sticky top-0 z-[100] bg-[#F8FAFC] dark:bg-zinc-950 transition-colors duration-500 px-3 py-2 md:px-4 md:py-3">
-      <div className="flex items-center justify-end">
+      <div className="flex items-center justify-between lg:justify-end">
+        <button
+          onClick={onOpenSidebar}
+          className="lg:hidden p-2.5 rounded-xl border-2 bg-white dark:bg-zinc-800 border-slate-50 dark:border-zinc-700 text-slate-500 dark:text-zinc-300 hover:text-[#63D2F3] transition-all"
+          aria-label="Open sidebar"
+        >
+          <Menu size={20} strokeWidth={3} />
+        </button>
         <div className="flex items-center gap-2 md:gap-2">
         <button
           onClick={toggleTheme}

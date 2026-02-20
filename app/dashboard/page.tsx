@@ -320,8 +320,8 @@ export default function DashboardPage() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-black p-4 md:p-8 font-sans text-slate-900 dark:text-slate-100 transition-colors duration-500">
-      <div className="max-w-7xl mx-auto space-y-8">
+    <div className="min-h-full bg-slate-50 dark:bg-black px-2 py-2 md:px-3 md:py-3 font-sans text-slate-900 dark:text-slate-100 transition-colors duration-500">
+      <div className="w-full space-y-4">
 
         {/* Header Section */}
         <header className="flex flex-col md:flex-row md:items-end justify-between gap-4">
