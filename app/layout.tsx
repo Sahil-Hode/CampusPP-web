@@ -15,7 +15,7 @@ const geistMono = Geist_Mono({
 
 // Updated metadata for your brand
 export const metadata: Metadata = {
-  title: "Jnexia | AI Learning Platform",
+  title: "Campus++ | AI Learning Platform",
   description: "Personalized AI career guidance and learning paths.",
 };
 
