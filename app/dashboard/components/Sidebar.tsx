@@ -4,8 +4,15 @@ import React, { useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
-  Brain, FileText, MessageCircle, LayoutDashboard,
-  GraduationCap, LogOut, User
+  LayoutDashboard,
+  Route,
+  Bot,
+  FileText,
+  Cuboid,
+  MessagesSquare,
+  GraduationCap,
+  LogOut,
+  User,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -29,11 +36,11 @@ export default function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
 
   const menuItems = [
     { name: "Dashboard", icon: LayoutDashboard, path: "/dashboard", activeColor: "bg-[#63D2F3]" },
-    { name: "Learning Path", icon: Brain, path: "/dashboard/learning-path", activeColor: "bg-[#F6AD55]" },
-    { name: "AI Chatbot", icon: MessageCircle, path: "/dashboard/chatbot", activeColor: "bg-[#B794F4]" },
+    { name: "Learning Path", icon: Route, path: "/dashboard/learning-path", activeColor: "bg-[#F6AD55]" },
+    { name: "AI Chatbot", icon: Bot, path: "/dashboard/chatbot", activeColor: "bg-[#B794F4]" },
     { name: "Resume Analyzer", icon: FileText, path: "/dashboard/resume-analyzer", activeColor: "bg-[#68D391]" },
-    { name: "3D Live Mentor Bot", icon: MessageCircle, path: "/dashboard/3d-mentor", activeColor: "bg-[#4FD1C5]" },
-    { name: "Mock Interview", icon: Brain, path: "/dashboard/mock-interview", activeColor: "bg-[#F6E05E]" },
+    { name: "3D Live Mentor Bot", icon: Cuboid, path: "/dashboard/3d-mentor", activeColor: "bg-[#4FD1C5]" },
+    { name: "Mock Interview", icon: MessagesSquare, path: "/dashboard/mock-interview", activeColor: "bg-[#F6E05E]" },
     { name: "My Profile", icon: User, path: "/dashboard/profile", activeColor: "bg-[#F687B3]" },
   ];
 
