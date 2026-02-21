@@ -27,19 +27,21 @@ function getHistoryRouteId() {
 }
 
 function getHistoryEndpointCandidates(userId: string) {
+  const configuredBase = process.env.NEXT_PUBLIC_CHAT_HISTORY_ENDPOINT?.trim() || "";
+  if (!configuredBase) return [];
+
   const safeId = encodeURIComponent(userId || "session");
-  return [
-    `/mistral-bot/history/${safeId}`,
-    `/ai-bot/history/${safeId}`,
-    `/history/${safeId}`,
-    `/mistral-bot/history`,
-    `/ai-bot/history`,
-    `/history`,
-  ];
+  const hasParam = configuredBase.includes(":userId");
+  const base = configuredBase.replace(/\/+$/, "");
+  const endpoint = hasParam ? configuredBase.replace(":userId", safeId) : `${base}/${safeId}`;
+  return [endpoint];
 }
 
 async function requestHistory(method: "GET" | "DELETE", userId: string) {
   const endpoints = getHistoryEndpointCandidates(userId);
+  if (endpoints.length === 0) {
+    throw { statusCode: 400, message: "History API not configured" };
+  }
   let last404: unknown = null;
 
   for (const endpoint of endpoints) {
@@ -68,7 +70,10 @@ async function requestHistoryCandidate(endpoint: string, method: "GET" | "DELETE
     (typeof window !== "undefined" && (localStorage.getItem("token") || localStorage.getItem("access_token"))) ||
     "";
 
-  const res = await fetch(`${BASE_URL}${endpoint}`, {
+  const isAbsolute = /^https?:\/\//i.test(endpoint);
+  const url = isAbsolute ? endpoint : `${BASE_URL}${endpoint}`;
+
+  const res = await fetch(url, {
     method,
     headers: {
       ...(token && { Authorization: `Bearer ${token}` }),
@@ -175,6 +180,8 @@ export default function ChatbotPage() {
 
     async function loadHistory() {
       const userId = getHistoryRouteId();
+      const hasConfiguredHistory = getHistoryEndpointCandidates(userId).length > 0;
+      if (!hasConfiguredHistory) return;
 
       setHistoryLoading(true);
       setHistoryError("");
@@ -221,6 +228,11 @@ export default function ChatbotPage() {
 
   async function clearHistory() {
     const userId = getHistoryRouteId();
+    const hasConfiguredHistory = getHistoryEndpointCandidates(userId).length > 0;
+    if (!hasConfiguredHistory) {
+      setHistoryError("History API is not configured.");
+      return;
+    }
     if (clearingHistory || loading) return;
 
     setClearingHistory(true);
