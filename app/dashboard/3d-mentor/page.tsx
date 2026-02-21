@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Mic, MicOff, Languages, Volume2, Bot, Play, Pause } from "lucide-react";
+import { Mic, MicOff, Languages, Volume2, Bot, Play, Pause, Captions } from "lucide-react";
 import { motion } from "framer-motion";
 
 type SpeechRecognitionAlternativeLike = {
@@ -33,6 +33,7 @@ type SpeechRecognitionCtor = new () => SpeechRecognitionLike;
 export default function Mentor3DPage() {
   const [isMicOn, setIsMicOn] = useState(false);
   const [isAudioOn, setIsAudioOn] = useState(true);
+  const [isSubtitleOn, setIsSubtitleOn] = useState(true);
   const [isSessionActive, setIsSessionActive] = useState(false);
   const [language, setLanguage] = useState("en");
   const [isSpeechSupported] = useState(() => {
@@ -171,7 +172,7 @@ export default function Mentor3DPage() {
               </p>
             </div>
 
-            {(liveText || finalText || (isMicOn && isSessionActive)) && (
+            {isSubtitleOn && (liveText || finalText || (isMicOn && isSessionActive)) && (
               <p className="absolute left-4 right-4 bottom-4 z-20 text-center text-white font-semibold text-lg drop-shadow-[0_2px_8px_rgba(0,0,0,0.75)]">
                 {liveText || finalText || "Speak now..."}
               </p>
@@ -229,6 +230,18 @@ export default function Mentor3DPage() {
               >
                 <Volume2 className="w-4 h-4" />
                 {isAudioOn ? "Voice On" : "Voice Off"}
+              </button>
+
+              <button
+                onClick={() => setIsSubtitleOn((prev) => !prev)}
+                className={`inline-flex items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-bold border ${
+                  isSubtitleOn
+                    ? "bg-sky-500 border-sky-500 text-white"
+                    : "bg-white dark:bg-zinc-900 border-slate-200 dark:border-zinc-700 text-slate-700 dark:text-zinc-100"
+                }`}
+              >
+                <Captions className="w-4 h-4" />
+                {isSubtitleOn ? "CC On" : "CC Off"}
               </button>
             </div>
 
