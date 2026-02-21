@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
@@ -24,25 +24,26 @@ interface SidebarProps {
 export default function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
-  const [userName] = useState(() => {
-    if (typeof window === "undefined") return "Student";
-    return localStorage.getItem("user_name") || "Student";
-  });
+  
+  // Design Constants based on your Prompt
+  const borderStyle = "border-[3px] border-black";
+  const shadowStyle = "shadow-[6px_6px_0px_0px_rgba(0,0,0,1)]";
+  const activeShadow = "shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]";
+
+  const menuItems = [
+    { name: "Dashboard", icon: LayoutDashboard, path: "/dashboard", color: "#63D2F3" },
+    { name: "Learning Path", icon: Route, path: "/dashboard/learning-path", color: "#F6AD55" },
+    { name: "AI Chatbot", icon: Bot, path: "/dashboard/chatbot", color: "#B39DDB" },
+    { name: "Resume Analyzer", icon: FileText, path: "/dashboard/resume-analyzer", color: "#4ADE80" },
+    { name: "3D Live Mentor", icon: Cuboid, path: "/dashboard/3d-mentor", color: "#FACC15" },
+    { name: "Mock Interview", icon: MessagesSquare, path: "/dashboard/mock-interview", color: "#F687B3" },
+    { name: "My Profile", icon: User, path: "/dashboard/profile", color: "#BDE0FE" },
+  ];
 
   const handleLogout = () => {
     localStorage.clear();
-    router.push("/"); // Or your login path
+    router.push("/");
   };
-
-  const menuItems = [
-    { name: "Dashboard", icon: LayoutDashboard, path: "/dashboard", activeColor: "bg-[#63D2F3]" },
-    { name: "Learning Path", icon: Route, path: "/dashboard/learning-path", activeColor: "bg-[#F6AD55]" },
-    { name: "AI Chatbot", icon: Bot, path: "/dashboard/chatbot", activeColor: "bg-[#B794F4]" },
-    { name: "Resume Analyzer", icon: FileText, path: "/dashboard/resume-analyzer", activeColor: "bg-[#68D391]" },
-    { name: "3D Live Mentor Bot", icon: Cuboid, path: "/dashboard/3d-mentor", activeColor: "bg-[#4FD1C5]" },
-    { name: "Mock Interview", icon: MessagesSquare, path: "/dashboard/mock-interview", activeColor: "bg-[#F6E05E]" },
-    { name: "My Profile", icon: User, path: "/dashboard/profile", activeColor: "bg-[#F687B3]" },
-  ];
 
   return (
     <>
@@ -53,49 +54,74 @@ export default function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={() => setIsOpen(false)}
-            className="fixed inset-0 z-[150] lg:hidden bg-slate-900/40 backdrop-blur-sm"
+            className="fixed inset-0 z-[150] lg:hidden bg-black/20 backdrop-blur-md"
           />
         )}
       </AnimatePresence>
 
-      <aside className={`fixed lg:sticky top-0 left-0 h-screen z-[200] w-72 bg-white dark:bg-zinc-950 border-r-2 border-slate-50 dark:border-zinc-800 transition-transform ${isOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}`}>
-        <div className="flex flex-col h-full">
-          <div className="p-8 flex items-center justify-between shrink-0">
-            <Link href="/dashboard" className="flex items-center gap-3">
-              <div className="w-11 h-11 bg-[#63D2F3] rounded-2xl flex items-center justify-center shadow-[0_5px_0_0_#48BBDB]">
-                <GraduationCap className="text-white w-7 h-7" />
+      <aside 
+        className={`fixed lg:sticky top-0 left-0 h-screen z-[200] w-72 
+        bg-white dark:bg-[#1E1E1E] transition-transform duration-300
+        ${borderStyle} border-l-0 m-0 lg:m-4 lg:h-[calc(100vh-32px)] rounded-[28px] ${shadowStyle}
+        ${isOpen ? "translate-x-4" : "-translate-x-full lg:translate-x-0"}`}
+      >
+        <div className="flex flex-col h-full p-6">
+          {/* Logo Section */}
+          <div className="mb-10 flex items-center justify-between shrink-0">
+            <Link href="/dashboard" className="flex items-center gap-3 group">
+              <div className={`w-12 h-12 bg-[#F5A623] rounded-[18px] flex items-center justify-center ${borderStyle} ${activeShadow} group-hover:translate-x-[2px] group-hover:translate-y-[2px] group-hover:shadow-none transition-all`}>
+                <GraduationCap className="text-black w-7 h-7" strokeWidth={2.5} />
               </div>
-              <span className="text-2xl font-black tracking-tighter text-slate-800 dark:text-white uppercase">Campus ++</span>
+              <span className="text-2xl font-[900] tracking-tight text-black dark:text-white italic">
+                CAMPUS<span className="text-[#F5A623]">++</span>
+              </span>
             </Link>
           </div>
 
-          <nav className="flex-1 px-4 space-y-2 overflow-y-auto">
-            <p className="text-[10px] font-black uppercase tracking-[0.3em] px-4 mb-4 text-slate-300 dark:text-zinc-500">Main Menu</p>
+          {/* Navigation */}
+          <nav className="flex-1 space-y-3 overflow-y-auto pr-2 custom-scrollbar">
+            <p className="text-[11px] font-black uppercase tracking-[0.2em] px-2 mb-4 text-black/40 dark:text-white/40">
+              Study Tools
+            </p>
             {menuItems.map((item) => {
               const isActive = pathname === item.path;
               return (
                 <Link key={item.path} href={item.path} onClick={() => setIsOpen(false)}>
-                  <div className={`flex items-center gap-3 px-4 py-3.5 rounded-[1.25rem] transition-all ${isActive ? `${item.activeColor} text-white` : "text-slate-500 hover:bg-slate-50 dark:hover:bg-zinc-900"}`}>
-                    <item.icon size={20} className={isActive ? "text-white" : "text-slate-400"} strokeWidth={isActive ? 3 : 2} />
-                    <span className={`text-sm ${isActive ? "font-black" : "font-bold"}`}>{item.name}</span>
-                  </div>
+                  <motion.div 
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    className={`
+                      flex items-center gap-4 px-4 py-4 rounded-[22px] transition-all
+                      ${borderStyle} mb-3
+                      ${isActive 
+                        ? `bg-[${item.color}] ${activeShadow} translate-x-[2px] translate-y-[2px]` 
+                        : `bg-white dark:bg-[#2A2A2A] ${shadowStyle} hover:translate-y-[-2px]`
+                      }
+                    `}
+                    style={{ backgroundColor: isActive ? item.color : '' }}
+                  >
+                    <item.icon 
+                      size={22} 
+                      className="text-black dark:text-white" 
+                      strokeWidth={isActive ? 3 : 2} 
+                    />
+                    <span className={`text-[15px] text-black dark:text-white ${isActive ? "font-black" : "font-bold"}`}>
+                      {item.name}
+                    </span>
+                  </motion.div>
                 </Link>
               );
             })}
           </nav>
 
-          <div className="p-6 space-y-3 shrink-0">
-            {/* <div className="px-4 py-4 bg-slate-50 dark:bg-zinc-900 rounded-[2rem] border-2 border-slate-100 dark:border-zinc-800 flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-[#F687B3] flex items-center justify-center text-white font-black text-sm">
-                {userName.charAt(0).toUpperCase()}
-              </div>
-              <div className="min-w-0">
-                <p className="text-xs font-black text-slate-800 dark:text-white truncate uppercase">{userName}</p>
-                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Student</p>
-              </div>
-            </div> */}
+          {/* Bottom Actions */}
+          <div className="pt-6 mt-6 space-y-3 shrink-0">
 
-            <button onClick={handleLogout} className="w-full flex items-center gap-3 px-6 py-4 rounded-2xl text-slate-400 hover:text-red-500 transition-all font-black text-[10px] uppercase tracking-widest">
+
+            <button 
+              onClick={handleLogout} 
+              className="w-full flex items-center gap-3 px-5 py-3 rounded-2xl hover:bg-red-400 transition-colors font-black text-xs uppercase tracking-widest text-black dark:text-white"
+            >
               <LogOut size={18} strokeWidth={3} />
               <span>Sign Out</span>
             </button>
