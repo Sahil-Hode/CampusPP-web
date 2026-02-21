@@ -32,7 +32,7 @@ export default function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
     { name: "Learning Path", icon: Brain, path: "/dashboard/learning-path", activeColor: "bg-[#F6AD55]" },
     { name: "AI Chatbot", icon: MessageCircle, path: "/dashboard/chatbot", activeColor: "bg-[#B794F4]" },
     { name: "Resume Analyzer", icon: FileText, path: "/dashboard/resume-analyzer", activeColor: "bg-[#68D391]" },
-    { name: "3D Live Mentor Bot", icon: MessageCircle, path: "/dashboard/3d-live-mentor-bot", activeColor: "bg-[#4FD1C5]" },
+    { name: "3D Live Mentor Bot", icon: MessageCircle, path: "/dashboard/3d-mentor", activeColor: "bg-[#4FD1C5]" },
     { name: "Mock Interview", icon: Brain, path: "/dashboard/mock-interview", activeColor: "bg-[#F6E05E]" },
     { name: "My Profile", icon: User, path: "/dashboard/profile", activeColor: "bg-[#F687B3]" },
   ];
