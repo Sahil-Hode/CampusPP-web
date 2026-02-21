@@ -1,7 +1,11 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
-import { ShieldCheck, Upload, FileText, Loader2, CheckCircle2, AlertCircle, Pencil, X, Eye, ScrollText } from "lucide-react";
+import { useEffect, useState, useRef, useCallback } from "react";
+import {
+  ShieldCheck, Upload, FileText, Loader2, CheckCircle2,
+  AlertCircle, Pencil, X, Eye, ScrollText, Camera, Trash2,
+  ZoomIn, ZoomOut, RotateCw, Check,
+} from "lucide-react";
 import { apiRequest } from "@/lib/api";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -117,6 +121,20 @@ export default function ProfileForm() {
   const [resumeText, setResumeText] = useState("");
   const [showResumeModal, setShowResumeModal] = useState(false);
   const modalRef = useRef<HTMLDivElement>(null);
+
+  // ── Avatar editor state ────────────────────────────────────────────────────
+  const [showAvatarModal, setShowAvatarModal] = useState(false);
+  const [avatarSrc, setAvatarSrc] = useState<string>(""); // raw selected image dataURL
+  const [cropZoom, setCropZoom] = useState(1);
+  const [cropRotate, setCropRotate] = useState(0);
+  const [cropOffset, setCropOffset] = useState({ x: 0, y: 0 });
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+  const [avatarSaving, setAvatarSaving] = useState(false);
+  const avatarModalRef = useRef<HTMLDivElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const avatarFileRef = useRef<HTMLInputElement>(null);
+
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [photoUploading, setPhotoUploading] = useState(false);
@@ -130,6 +148,143 @@ export default function ProfileForm() {
     "w-full bg-slate-50 dark:bg-zinc-800/50 rounded-2xl py-3.5 px-4 text-sm font-bold border border-transparent focus:outline-none focus:ring-2 focus:ring-cyan-300/50 focus:border-cyan-300 dark:focus:border-cyan-500 transition";
   const readOnlyInput =
     "bg-slate-100 dark:bg-zinc-900/70 text-slate-700 dark:text-slate-300 cursor-not-allowed";
+
+  // ── Draw crop preview on canvas ────────────────────────────────────────────
+  const drawCrop = useCallback(() => {
+    const canvas = canvasRef.current;
+    if (!canvas || !avatarSrc) return;
+    const SIZE = 240;
+    canvas.width = SIZE;
+    canvas.height = SIZE;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    const img = new Image();
+    img.onload = () => {
+      ctx.clearRect(0, 0, SIZE, SIZE);
+      // Circular clip
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(SIZE / 2, SIZE / 2, SIZE / 2, 0, Math.PI * 2);
+      ctx.clip();
+
+      ctx.translate(SIZE / 2 + cropOffset.x, SIZE / 2 + cropOffset.y);
+      ctx.rotate((cropRotate * Math.PI) / 180);
+      ctx.scale(cropZoom, cropZoom);
+
+      const scale = Math.max(SIZE / img.width, SIZE / img.height);
+      const w = img.width * scale;
+      const h = img.height * scale;
+      ctx.drawImage(img, -w / 2, -h / 2, w, h);
+      ctx.restore();
+    };
+    img.src = avatarSrc;
+  }, [avatarSrc, cropZoom, cropRotate, cropOffset]);
+
+  useEffect(() => {
+    drawCrop();
+  }, [drawCrop]);
+
+  // ── Open avatar editor ─────────────────────────────────────────────────────
+  const openAvatarEditor = (file: File) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      setAvatarSrc(e.target?.result as string);
+      setCropZoom(1);
+      setCropRotate(0);
+      setCropOffset({ x: 0, y: 0 });
+      setShowAvatarModal(true);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  // ── Drag handlers for pan ──────────────────────────────────────────────────
+  const handleCropMouseDown = (e: React.MouseEvent) => {
+    setIsDragging(true);
+    setDragStart({ x: e.clientX - cropOffset.x, y: e.clientY - cropOffset.y });
+  };
+  const handleCropMouseMove = (e: React.MouseEvent) => {
+    if (!isDragging) return;
+    setCropOffset({ x: e.clientX - dragStart.x, y: e.clientY - dragStart.y });
+  };
+  const handleCropMouseUp = () => setIsDragging(false);
+
+  // Touch support
+  const handleCropTouchStart = (e: React.TouchEvent) => {
+    const t = e.touches[0];
+    setIsDragging(true);
+    setDragStart({ x: t.clientX - cropOffset.x, y: t.clientY - cropOffset.y });
+  };
+  const handleCropTouchMove = (e: React.TouchEvent) => {
+    if (!isDragging) return;
+    const t = e.touches[0];
+    setCropOffset({ x: t.clientX - dragStart.x, y: t.clientY - dragStart.y });
+  };
+
+  // ── Export canvas → Blob → upload ─────────────────────────────────────────
+  const handleAvatarSave = async () => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    setAvatarSaving(true);
+    setError("");
+    setSuccess("");
+    try {
+      // Export as 400×400 JPEG for efficiency
+      const exportCanvas = document.createElement("canvas");
+      exportCanvas.width = 400;
+      exportCanvas.height = 400;
+      const ectx = exportCanvas.getContext("2d");
+      if (!ectx) throw new Error("Canvas not available");
+
+      // Scale up from preview canvas
+      ectx.drawImage(canvas, 0, 0, 400, 400);
+
+      const blob: Blob = await new Promise((res, rej) =>
+        exportCanvas.toBlob(
+          (b) => (b ? res(b) : rej(new Error("Canvas export failed"))),
+          "image/jpeg",
+          0.88
+        )
+      );
+      const file = new File([blob], "avatar.jpg", { type: "image/jpeg" });
+      await handlePhotoUpload(file);
+      setShowAvatarModal(false);
+      setAvatarSrc("");
+    } catch (err) {
+      setError(getErrorMessage(err));
+    } finally {
+      setAvatarSaving(false);
+    }
+  };
+
+  // ── Remove avatar: upload a 1×1 transparent PNG to overwrite ──────────────
+  // (no DELETE endpoint exists — we overwrite with a transparent pixel so
+  //  the backend stores an empty/transparent base64 and the UI falls back to initials)
+  const handleAvatarRemove = async () => {
+    setPhotoUploading(true);
+    setError("");
+    setSuccess("");
+    try {
+      // Create a 1x1 transparent PNG blob
+      const tiny = document.createElement("canvas");
+      tiny.width = 1;
+      tiny.height = 1;
+      const blob: Blob = await new Promise((res, rej) =>
+        tiny.toBlob(
+          (b) => (b ? res(b) : rej(new Error("Canvas export failed"))),
+          "image/png"
+        )
+      );
+      const file = new File([blob], "clear.png", { type: "image/png" });
+      await handlePhotoUpload(file);
+      setPhotoUrl(""); // immediately clear preview
+      setSuccess("Avatar removed.");
+    } catch (err) {
+      setError(getErrorMessage(err));
+    } finally {
+      setPhotoUploading(false);
+    }
+  };
 
   // ── Fetch profile ──────────────────────────────────────────────────────────
   const fetchProfile = async () => {
@@ -165,7 +320,10 @@ export default function ProfileForm() {
   // ── Close modal on Escape key ──────────────────────────────────────────────
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setShowResumeModal(false);
+      if (e.key === "Escape") {
+        setShowResumeModal(false);
+        setShowAvatarModal(false);
+      }
     };
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
@@ -330,25 +488,60 @@ export default function ProfileForm() {
         {/* ── Header ── */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div className="flex items-center gap-4">
-            {/* Avatar */}
-            <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-cyan-400 to-sky-500 text-white flex items-center justify-center overflow-hidden flex-shrink-0">
-              {photoUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={photoUrl}
-                  alt="Profile avatar"
-                  className="h-full w-full object-cover"
-                />
-              ) : (
-                <span className="text-xl font-black">
-                  {getInitials(profile.name)}
-                </span>
+            {/* Avatar — always clickable to open editor */}
+            <div className="relative group flex-shrink-0 w-16 h-16">
+              {/* Circle avatar */}
+              <div className="w-16 h-16 rounded-full bg-gradient-to-br from-cyan-400 to-sky-500 text-white flex items-center justify-center overflow-hidden ring-2 ring-white dark:ring-zinc-900 shadow-md">
+                {photoUrl && !photoUrl.endsWith("AAAAAAAAAAAAAAAAAAAA") ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={photoUrl} alt="Profile avatar" className="h-full w-full object-cover" />
+                ) : (
+                  <span className="text-xl font-black select-none">{getInitials(profile.name)}</span>
+                )}
+              </div>
+
+              {/* Hover overlay — camera icon, stays inside the circle */}
+              <button
+                onClick={() => avatarFileRef.current?.click()}
+                className="absolute inset-0 rounded-full bg-black/55 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-0.5"
+                aria-label="Change avatar"
+                title="Change photo"
+              >
+                <Camera size={16} className="text-white drop-shadow" />
+                <span className="text-[8px] font-black text-white uppercase tracking-wider leading-none">Edit</span>
+              </button>
+
+              {/* Remove badge — bottom-right, only when real photo exists */}
+              {photoUrl && !photoUrl.endsWith("AAAAAAAAAAAAAAAAAAAA") && (
+                <button
+                  onClick={handleAvatarRemove}
+                  disabled={photoUploading}
+                  className="absolute bottom-0 right-0 w-5 h-5 rounded-full bg-rose-500 hover:bg-rose-600 border-2 border-white dark:border-zinc-900 flex items-center justify-center shadow transition disabled:opacity-60 z-10"
+                  aria-label="Remove avatar"
+                  title="Remove photo"
+                >
+                  {photoUploading
+                    ? <Loader2 size={8} className="text-white animate-spin" />
+                    : <Trash2 size={8} className="text-white" />
+                  }
+                </button>
               )}
+
+              {/* Hidden file input */}
+              <input
+                ref={avatarFileRef}
+                type="file"
+                className="hidden"
+                accept="image/*"
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (f) openAvatarEditor(f);
+                  e.target.value = "";
+                }}
+              />
             </div>
             <div>
-              <h2 className="text-2xl font-black text-slate-900 dark:text-white">
-                My Profile
-              </h2>
+              <h2 className="text-2xl font-black text-slate-900 dark:text-white">My Profile</h2>
               <p className="text-[10px] text-slate-400 uppercase tracking-widest font-black">
                 Student Identity &amp; Documents
               </p>
@@ -359,24 +552,6 @@ export default function ProfileForm() {
           <div className="flex items-center gap-2">
             {isEditing ? (
               <>
-                {/* Upload Avatar */}
-                <label className="h-10 px-4 rounded-xl border border-slate-200 dark:border-zinc-700 text-xs font-black uppercase tracking-wider text-slate-600 dark:text-slate-200 inline-flex items-center gap-2 cursor-pointer hover:bg-slate-100 dark:hover:bg-zinc-800 transition">
-                  {photoUploading ? (
-                    <Loader2 size={14} className="animate-spin" />
-                  ) : (
-                    <Upload size={14} />
-                  )}
-                  Avatar
-                  <input
-                    type="file"
-                    className="hidden"
-                    accept="image/*"
-                    onChange={(e) =>
-                      handlePhotoUpload(e.target.files?.[0] ?? null)
-                    }
-                  />
-                </label>
-
                 {/* Upload Resume */}
                 <label className="h-10 px-4 rounded-xl border border-slate-200 dark:border-zinc-700 text-xs font-black uppercase tracking-wider text-slate-600 dark:text-slate-200 inline-flex items-center gap-2 cursor-pointer hover:bg-slate-100 dark:hover:bg-zinc-800 transition">
                   {resumeUploading ? (
@@ -401,7 +576,7 @@ export default function ProfileForm() {
                     setIsEditing(false);
                     setError("");
                     setSuccess("");
-                    fetchProfile(); // revert any unsaved local changes
+                    fetchProfile();
                   }}
                   className="h-10 w-10 rounded-xl border border-slate-200 dark:border-zinc-700 text-slate-600 dark:text-slate-200 inline-flex items-center justify-center hover:bg-slate-100 dark:hover:bg-zinc-800 transition"
                   aria-label="Cancel editing"
@@ -410,13 +585,8 @@ export default function ProfileForm() {
                 </button>
               </>
             ) : (
-              /* Edit button */
               <button
-                onClick={() => {
-                  setIsEditing(true);
-                  setError("");
-                  setSuccess("");
-                }}
+                onClick={() => { setIsEditing(true); setError(""); setSuccess(""); }}
                 className="h-10 w-10 rounded-xl border border-slate-200 dark:border-zinc-700 text-slate-600 dark:text-slate-200 inline-flex items-center justify-center hover:bg-slate-100 dark:hover:bg-zinc-800 transition"
                 aria-label="Edit profile"
               >
@@ -591,6 +761,125 @@ export default function ProfileForm() {
           )}
         </div>
       </div>
+
+      {/* ── Avatar Crop / Edit Modal ── */}
+      {showAvatarModal && avatarSrc && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm"
+          onClick={(e) => {
+            if (avatarModalRef.current && !avatarModalRef.current.contains(e.target as Node)) {
+              setShowAvatarModal(false);
+            }
+          }}
+        >
+          <div
+            ref={avatarModalRef}
+            className="relative w-full max-w-sm flex flex-col bg-white dark:bg-zinc-950 rounded-[2rem] shadow-2xl border border-slate-100 dark:border-zinc-800 overflow-hidden"
+          >
+            {/* Modal header */}
+            <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 dark:border-zinc-800">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-cyan-400 to-sky-500 flex items-center justify-center">
+                  <Camera size={14} className="text-white" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-black text-slate-900 dark:text-white">Edit Avatar</h3>
+                  <p className="text-[10px] text-slate-400 uppercase tracking-widest font-black">Drag · Zoom · Rotate</p>
+                </div>
+              </div>
+              <button
+                onClick={() => { setShowAvatarModal(false); setAvatarSrc(""); }}
+                className="h-8 w-8 rounded-xl border border-slate-200 dark:border-zinc-700 text-slate-500 dark:text-slate-400 inline-flex items-center justify-center hover:bg-slate-100 dark:hover:bg-zinc-800 transition"
+              >
+                <X size={14} />
+              </button>
+            </div>
+
+            {/* Canvas crop area */}
+            <div className="flex flex-col items-center gap-4 px-5 py-6">
+              {/* Circular preview canvas */}
+              <div className="relative">
+                <canvas
+                  ref={canvasRef}
+                  width={240}
+                  height={240}
+                  className="rounded-full border-4 border-cyan-400/60 shadow-xl cursor-grab active:cursor-grabbing"
+                  style={{ touchAction: "none" }}
+                  onMouseDown={handleCropMouseDown}
+                  onMouseMove={handleCropMouseMove}
+                  onMouseUp={handleCropMouseUp}
+                  onMouseLeave={handleCropMouseUp}
+                  onTouchStart={handleCropTouchStart}
+                  onTouchMove={handleCropTouchMove}
+                  onTouchEnd={handleCropMouseUp}
+                />
+                <div className="absolute inset-0 rounded-full ring-2 ring-inset ring-white/20 pointer-events-none" />
+              </div>
+
+              {/* Zoom slider */}
+              <div className="w-full flex items-center gap-3">
+                <ZoomOut size={14} className="text-slate-400 flex-shrink-0" />
+                <input
+                  type="range"
+                  min="0.5"
+                  max="3"
+                  step="0.01"
+                  value={cropZoom}
+                  onChange={(e) => setCropZoom(parseFloat(e.target.value))}
+                  className="flex-1 accent-cyan-500 h-1.5 rounded-full cursor-pointer"
+                />
+                <ZoomIn size={14} className="text-slate-400 flex-shrink-0" />
+              </div>
+
+              {/* Rotate slider */}
+              <div className="w-full flex items-center gap-3">
+                <RotateCw size={14} className="text-slate-400 flex-shrink-0" />
+                <input
+                  type="range"
+                  min="-180"
+                  max="180"
+                  step="1"
+                  value={cropRotate}
+                  onChange={(e) => setCropRotate(parseFloat(e.target.value))}
+                  className="flex-1 accent-cyan-500 h-1.5 rounded-full cursor-pointer"
+                />
+                <span className="text-[10px] font-black text-slate-400 w-8 text-right">
+                  {cropRotate}°
+                </span>
+              </div>
+
+              {/* Reset controls */}
+              <button
+                onClick={() => { setCropZoom(1); setCropRotate(0); setCropOffset({ x: 0, y: 0 }); }}
+                className="text-[10px] font-black uppercase tracking-wider text-slate-400 hover:text-cyan-500 transition"
+              >
+                Reset position
+              </button>
+            </div>
+
+            {/* Modal footer */}
+            <div className="flex items-center justify-between gap-2 px-5 py-4 border-t border-slate-100 dark:border-zinc-800 bg-slate-50/60 dark:bg-zinc-900/60">
+              <button
+                onClick={() => { setShowAvatarModal(false); setAvatarSrc(""); }}
+                className="h-10 px-4 rounded-xl border border-slate-200 dark:border-zinc-700 text-xs font-black uppercase tracking-wider text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-zinc-800 transition"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleAvatarSave}
+                disabled={avatarSaving}
+                className="h-10 px-5 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-xl text-xs font-black uppercase tracking-wider disabled:opacity-60 transition hover:opacity-90 flex items-center gap-2"
+              >
+                {avatarSaving ? (
+                  <><Loader2 size={13} className="animate-spin" /> Uploading…</>
+                ) : (
+                  <><Check size={13} /> Save Avatar</>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Resume Viewer Modal ── */}
       {showResumeModal && (

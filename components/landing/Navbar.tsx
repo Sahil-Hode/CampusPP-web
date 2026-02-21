@@ -32,7 +32,7 @@ export default function Navbar() {
             <GraduationCap className="text-white w-5 h-5 md:w-6 md:h-6" strokeWidth={2.5} />
           </div>
           <span className="font-[1000] tracking-tighter text-slate-800 dark:text-white text-xl md:text-2xl uppercase">
-            Jnexia
+            Campus ++
           </span>
         </Link>
 
