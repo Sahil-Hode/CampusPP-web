@@ -29,8 +29,8 @@ const participants: Tile[] = [
 ];
 
 export default function MockInterviewPage() {
-  const [isMicOn, setIsMicOn] = useState(true);
-  const [isCamOn, setIsCamOn] = useState(true);
+  const [isMicOn, setIsMicOn] = useState(false);
+  const [isCamOn, setIsCamOn] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
   const [deviceError, setDeviceError] = useState("");
   const [hasStream, setHasStream] = useState(false);
@@ -50,15 +50,11 @@ export default function MockInterviewPage() {
       setIsConnecting(true);
       setDeviceError("");
 
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: true,
-        audio: true,
-      });
-
-      streamRef.current = stream;
+      // Start with no active devices; user enables mic/camera manually.
+      streamRef.current = new MediaStream();
       setHasStream(true);
-      setIsCamOn(true);
-      setIsMicOn(true);
+      setIsCamOn(false);
+      setIsMicOn(false);
     } catch (error) {
       console.error("Failed to access media devices", error);
       setDeviceError("Please allow camera and microphone access to continue.");
@@ -104,19 +100,62 @@ export default function MockInterviewPage() {
     localVideoRef.current.srcObject = streamRef.current;
   }, [hasStream]);
 
-  useEffect(() => {
+  async function toggleMic() {
     if (!streamRef.current) return;
-    streamRef.current.getAudioTracks().forEach((track) => {
-      track.enabled = isMicOn;
-    });
-  }, [isMicOn]);
 
-  useEffect(() => {
+    if (isMicOn) {
+      streamRef.current.getAudioTracks().forEach((track) => {
+        track.stop();
+        streamRef.current?.removeTrack(track);
+      });
+      setIsMicOn(false);
+      return;
+    }
+
+    try {
+      const micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const audioTrack = micStream.getAudioTracks()[0];
+      if (!audioTrack) return;
+
+      streamRef.current.addTrack(audioTrack);
+      setIsMicOn(true);
+      setDeviceError("");
+    } catch (error) {
+      console.error("Failed to access microphone", error);
+      setDeviceError("Microphone is off. Allow microphone access and try again.");
+      setIsMicOn(false);
+    }
+  }
+
+  async function toggleCamera() {
     if (!streamRef.current) return;
-    streamRef.current.getVideoTracks().forEach((track) => {
-      track.enabled = isCamOn;
-    });
-  }, [isCamOn]);
+
+    if (isCamOn) {
+      streamRef.current.getVideoTracks().forEach((track) => {
+        track.stop();
+        streamRef.current?.removeTrack(track);
+      });
+      setIsCamOn(false);
+      return;
+    }
+
+    try {
+      const camStream = await navigator.mediaDevices.getUserMedia({ video: true });
+      const videoTrack = camStream.getVideoTracks()[0];
+      if (!videoTrack) return;
+
+      streamRef.current.addTrack(videoTrack);
+      if (localVideoRef.current) {
+        localVideoRef.current.srcObject = streamRef.current;
+      }
+      setIsCamOn(true);
+      setDeviceError("");
+    } catch (error) {
+      console.error("Failed to access camera", error);
+      setDeviceError("Camera is off. Allow camera access and try again.");
+      setIsCamOn(false);
+    }
+  }
 
   function endCall() {
     stopLocalMedia();
@@ -138,7 +177,7 @@ export default function MockInterviewPage() {
       <section className="relative rounded-[2rem] border-2 border-slate-200 dark:border-zinc-800 bg-slate-900 dark:bg-black p-4 md:p-5 shadow-xl">
         {(isConnecting || deviceError) && (
           <div className="mb-4 rounded-xl border border-slate-700 bg-slate-800/80 px-4 py-3 text-xs font-semibold text-slate-200 flex items-center justify-between gap-3">
-            <span>{isConnecting ? "Requesting camera and microphone..." : deviceError}</span>
+            <span>{isConnecting ? "Preparing interview room..." : deviceError}</span>
             {!isConnecting && (
               <button
                 onClick={startLocalMedia}
@@ -201,7 +240,7 @@ export default function MockInterviewPage() {
                     </div>
                   )}
                   <div className="absolute left-3 bottom-3 text-[11px] px-2 py-1 rounded-md bg-black/45 text-white font-bold">
-                    {person.name}
+                    {userName}
                   </div>
                 </>
               ) : (
@@ -253,7 +292,7 @@ export default function MockInterviewPage() {
 
         <div className="mt-5 md:mt-6 flex items-center justify-center gap-2 md:gap-3 flex-wrap">
           <button
-            onClick={() => setIsMicOn((prev) => !prev)}
+            onClick={toggleMic}
             disabled={!hasStream}
             className={`w-10 h-10 md:w-11 md:h-11 rounded-full grid place-items-center transition ${
               isMicOn ? "bg-slate-700 text-white" : "bg-red-500 text-white"
@@ -264,7 +303,7 @@ export default function MockInterviewPage() {
           </button>
 
           <button
-            onClick={() => setIsCamOn((prev) => !prev)}
+            onClick={toggleCamera}
             disabled={!hasStream}
             className={`w-10 h-10 md:w-11 md:h-11 rounded-full grid place-items-center transition ${
               isCamOn ? "bg-slate-700 text-white" : "bg-red-500 text-white"
