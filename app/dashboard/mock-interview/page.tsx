@@ -36,6 +36,7 @@ export default function MockInterviewPage() {
   const [hasStream, setHasStream] = useState(false);
   const [profilePhoto, setProfilePhoto] = useState("");
   const [userName, setUserName] = useState("You");
+  const [isParticipantsOpen, setIsParticipantsOpen] = useState(false);
   const streamRef = useRef<MediaStream | null>(null);
   const localVideoRef = useRef<HTMLVideoElement | null>(null);
 
@@ -134,7 +135,7 @@ export default function MockInterviewPage() {
         </p>
       </div>
 
-      <section className="rounded-[2rem] border-2 border-slate-200 dark:border-zinc-800 bg-slate-900 dark:bg-black p-4 md:p-5 shadow-xl">
+      <section className="relative rounded-[2rem] border-2 border-slate-200 dark:border-zinc-800 bg-slate-900 dark:bg-black p-4 md:p-5 shadow-xl">
         {(isConnecting || deviceError) && (
           <div className="mb-4 rounded-xl border border-slate-700 bg-slate-800/80 px-4 py-3 text-xs font-semibold text-slate-200 flex items-center justify-between gap-3">
             <span>{isConnecting ? "Requesting camera and microphone..." : deviceError}</span>
@@ -217,6 +218,39 @@ export default function MockInterviewPage() {
           ))}
         </div>
 
+        {isParticipantsOpen && (
+          <div className="absolute right-4 top-4 z-30 w-64 rounded-2xl border border-slate-600 bg-slate-800/95 backdrop-blur-sm shadow-2xl">
+            <div className="px-4 py-3 border-b border-slate-700 flex items-center justify-between">
+              <p className="text-xs font-black uppercase tracking-widest text-slate-200">
+                Participants
+              </p>
+              <span className="text-[10px] font-bold text-slate-400">{participants.length}</span>
+            </div>
+            <div className="p-2.5 space-y-2 max-h-64 overflow-y-auto">
+              {participants.map((person) => {
+                const isSelf = person.id === "student";
+                return (
+                  <div
+                    key={`list-${person.id}`}
+                    className={`rounded-xl px-3 py-2.5 border ${
+                      isSelf
+                        ? "border-[#63D2F3]/70 bg-[#63D2F3]/10"
+                        : "border-slate-700 bg-slate-900/70"
+                    }`}
+                  >
+                    <p className="text-sm font-bold text-white">
+                      {isSelf ? "You" : person.name}
+                    </p>
+                    <p className="text-[11px] font-semibold text-slate-400">
+                      {isSelf ? userName : person.role}
+                    </p>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         <div className="mt-5 md:mt-6 flex items-center justify-center gap-2 md:gap-3 flex-wrap">
           <button
             onClick={() => setIsMicOn((prev) => !prev)}
@@ -248,7 +282,10 @@ export default function MockInterviewPage() {
           </button>
 
           <button
-            className="w-10 h-10 md:w-11 md:h-11 rounded-full grid place-items-center bg-slate-700 text-white"
+            onClick={() => setIsParticipantsOpen((prev) => !prev)}
+            className={`w-10 h-10 md:w-11 md:h-11 rounded-full grid place-items-center text-white ${
+              isParticipantsOpen ? "bg-[#63D2F3] text-slate-900" : "bg-slate-700"
+            }`}
             aria-label="Participants"
           >
             <Users size={18} />
