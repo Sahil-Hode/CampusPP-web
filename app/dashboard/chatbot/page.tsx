@@ -1,11 +1,10 @@
 "use client";
 import { useState, useRef, useEffect } from "react";
-import { Send, Bot, User, Zap, Terminal, Sparkles } from "lucide-react";
+import { Send } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { apiRequest } from "@/lib/api";
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import AIAvatar from "../components/AIAvatar"; // ✅ Corrected path
 
 type ChatMessage = {
   role: "user" | "ai";
@@ -46,35 +45,24 @@ export default function ChatbotPage() {
   }
 
   return (
-    <div className="flex flex-col h-[calc(100vh-140px)] max-w-7xl mx-auto pb-6 px-4">
+    <div className="h-[calc(100dvh-88px)] md:h-[calc(100vh-140px)] w-full max-w-6xl mx-auto px-3 sm:px-4 md:px-6 pb-3 md:pb-6">
       {/* HEADER SECTION */}
-      <div className="flex justify-between items-center mb-6">
+      <div className="flex justify-between items-center mb-3 md:mb-4">
         <div>
-          <h2 className="text-4xl font-black text-slate-900 dark:text-white flex items-center gap-3">
-            AI Mentor
-            <span className="text-[10px] bg-cyan-100 text-cyan-600 px-3 py-1 rounded-full uppercase tracking-widest">LIVE</span>
+          <h2 className="text-xl sm:text-2xl md:text-3xl font-black text-slate-900 dark:text-white flex items-center gap-2 md:gap-3">
+            AI Assistant
+            <span className="text-[9px] md:text-[10px] bg-cyan-100 text-cyan-600 px-2.5 md:px-3 py-1 rounded-full uppercase tracking-widest">Chat</span>
           </h2>
         </div>
       </div>
 
-      <div className="flex flex-col lg:flex-row gap-6 flex-1 min-h-0">
-        {/* AVATAR PANEL */}
-        <div className="lg:w-1/3 bg-slate-900 rounded-[3rem] overflow-hidden flex flex-col items-center justify-center border-2 border-slate-800 shadow-2xl relative">
-          <div className="absolute top-6 z-10 text-center">
-            <p className="text-xs font-bold text-cyan-400 uppercase tracking-widest animate-pulse">
-              {loading ? "Neural Core Processing" : "System Standby"}
-            </p>
-          </div>
-          <AIAvatar isTyping={message.length > 0} isResponding={loading} />
-        </div>
-
-        {/* CHAT PANEL */}
-        <div className="lg:w-2/3 flex flex-col min-h-0">
-          <div ref={scrollRef} className="flex-1 bg-white dark:bg-slate-900 rounded-[3rem] border-2 border-slate-100 dark:border-slate-800 overflow-y-auto p-4 md:p-8 space-y-6 shadow-sm custom-scrollbar">
+      <div className="h-[calc(100%-40px)] md:h-[calc(100%-52px)] flex flex-col min-h-0">
+        <div className="flex flex-col min-h-0 h-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl md:rounded-[2rem] shadow-sm overflow-hidden">
+          <div ref={scrollRef} className="flex-1 overflow-y-auto p-3 sm:p-4 md:p-6 space-y-4 md:space-y-5 custom-scrollbar">
             <AnimatePresence>
               {chat.map((c, i) => (
                 <motion.div key={i} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className={`flex ${c.role === "user" ? "justify-end" : "justify-start"}`}>
-                  <div className={`p-5 rounded-[2rem] text-sm font-medium leading-relaxed max-w-[90%] md:max-w-[80%] shadow-sm ${c.role === "user"
+                  <div className={`px-4 py-3.5 md:px-5 md:py-4 rounded-2xl md:rounded-3xl text-sm md:text-[15px] font-medium leading-relaxed max-w-[88%] sm:max-w-[80%] md:max-w-[75%] shadow-sm ${c.role === "user"
                     ? "bg-cyan-500 text-white"
                     : "bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-100 dark:border-slate-700"}`}>
 
@@ -105,7 +93,7 @@ export default function ChatbotPage() {
                 </motion.div>
               ))}
               {loading && (
-                <div className="flex items-center gap-3 px-4">
+                <div className="flex items-center gap-3 px-2">
                   <div className="flex gap-1">
                     {[0, 1, 2].map((dot) => (
                       <motion.div
@@ -125,20 +113,26 @@ export default function ChatbotPage() {
           </div>
 
           {/* INPUT AREA */}
-          <div className="mt-4 flex gap-3">
-            <div className="relative flex-1">
-              <Terminal className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-400" />
+          <div className="border-t border-slate-200 dark:border-slate-800 p-2.5 sm:p-3">
+            <div className="flex items-end gap-2 sm:gap-3">
+            <div className="flex-1">
               <input
-                className="w-full py-5 pl-14 pr-6 rounded-[2.5rem] border-2 border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm font-bold outline-none"
+                className="w-full h-12 md:h-14 px-4 md:px-5 rounded-xl md:rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-900 text-sm md:text-[15px] font-semibold outline-none focus:ring-2 focus:ring-cyan-400/40 focus:border-cyan-400 dark:focus:border-cyan-500"
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && sendMessage()}
                 placeholder="Type your message..."
               />
             </div>
-            <button onClick={sendMessage} className="px-10 rounded-[2.5rem] bg-slate-900 text-white font-black hover:bg-slate-800 transition-colors">
-              SEND
+            <button
+              onClick={sendMessage}
+              disabled={!message.trim() || loading}
+              aria-label="Send message"
+              className="h-12 w-12 md:h-14 md:w-14 shrink-0 rounded-xl md:rounded-2xl bg-slate-900 text-white grid place-items-center hover:bg-slate-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <Send size={18} />
             </button>
+          </div>
           </div>
         </div>
       </div>
