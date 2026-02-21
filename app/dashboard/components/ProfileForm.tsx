@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { ShieldCheck, Upload, FileText, Loader2, CheckCircle2, AlertCircle, Pencil, X } from "lucide-react";
+import { useEffect, useState, useRef } from "react";
+import { ShieldCheck, Upload, FileText, Loader2, CheckCircle2, AlertCircle, Pencil, X, Eye, ScrollText } from "lucide-react";
 import { apiRequest } from "@/lib/api";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -74,6 +74,7 @@ type ExtractedProfile = {
   profile: ProfileState;
   photoUrl: string;          // base64 data URI or empty
   resumeUploadedAt: string;  // ISO date string or empty
+  resumeText: string;        // extracted plain text of resume
 };
 
 const extractProfile = (raw: unknown): ExtractedProfile => {
@@ -101,7 +102,10 @@ const extractProfile = (raw: unknown): ExtractedProfile => {
   // Resume: backend stores text only, no URL. Use resumeUploadedAt to know if uploaded.
   const resumeUploadedAt = pickString(student, ["resumeUploadedAt"]);
 
-  return { profile, photoUrl, resumeUploadedAt };
+  // Resume extracted text
+  const resumeText = pickString(student, ["resumeText", "resume_text", "resumeContent"]);
+
+  return { profile, photoUrl, resumeUploadedAt, resumeText };
 };
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -110,6 +114,9 @@ export default function ProfileForm() {
   const [profile, setProfile] = useState<ProfileState>(INITIAL_PROFILE);
   const [photoUrl, setPhotoUrl] = useState("");
   const [resumeUploadedAt, setResumeUploadedAt] = useState("");
+  const [resumeText, setResumeText] = useState("");
+  const [showResumeModal, setShowResumeModal] = useState(false);
+  const modalRef = useRef<HTMLDivElement>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [photoUploading, setPhotoUploading] = useState(false);
@@ -134,6 +141,7 @@ export default function ProfileForm() {
       setProfile(parsed.profile);
       if (parsed.photoUrl) setPhotoUrl(parsed.photoUrl);
       if (parsed.resumeUploadedAt) setResumeUploadedAt(parsed.resumeUploadedAt);
+      if (parsed.resumeText) setResumeText(parsed.resumeText);
 
       // Cache name/email for other parts of the app
       if (typeof window !== "undefined") {
@@ -146,6 +154,22 @@ export default function ProfileForm() {
       setLoading(false);
     }
   };
+
+  // ── Close modal on backdrop click ──────────────────────────────────────────
+  const handleModalBackdropClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (modalRef.current && !modalRef.current.contains(e.target as Node)) {
+      setShowResumeModal(false);
+    }
+  };
+
+  // ── Close modal on Escape key ──────────────────────────────────────────────
+  useEffect(() => {
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setShowResumeModal(false);
+    };
+    window.addEventListener("keydown", handleKey);
+    return () => window.removeEventListener("keydown", handleKey);
+  }, []);
 
   useEffect(() => {
     fetchProfile();
@@ -246,15 +270,22 @@ export default function ProfileForm() {
         ["resume", "resumeFile", "file", "document", "pdf"]
       );
 
-      // Extract resumeUploadedAt from the response
+      // Extract fields from upload response
       const root = (uploadRes as Record<string, unknown>) ?? {};
       const data = (root.data as Record<string, unknown>) ?? {};
+
       const uploadedAt =
         typeof data.resumeUploadedAt === "string" ? data.resumeUploadedAt : "";
-      if (uploadedAt) setResumeUploadedAt(uploadedAt);
-      else setResumeUploadedAt(new Date().toISOString()); // fallback: use now
+      // resumePreview is the first 300 chars backend sends back
+      const preview =
+        typeof data.resumePreview === "string" ? data.resumePreview : "";
+
+      setResumeUploadedAt(uploadedAt || new Date().toISOString());
+      // Pre-populate preview text; full text will come on next fetchProfile
+      if (preview) setResumeText(preview);
 
       setSuccess("Resume uploaded and processed successfully.");
+      // Fetch full profile to get complete resumeText
       await fetchProfile();
     } catch (err) {
       setError(getErrorMessage(err));
@@ -518,15 +549,27 @@ export default function ProfileForm() {
 
         {/* ── Footer: resume status + save button ── */}
         <div className="flex items-center justify-between gap-3 flex-wrap pt-2 border-t border-slate-100 dark:border-zinc-800">
-          {/* Resume status */}
-          <div className="text-xs font-bold text-slate-500 dark:text-slate-400 flex items-center gap-2">
-            <FileText size={14} className={resumeUploadedAt ? "text-cyan-500" : ""} />
-            {resumeUploadedAt ? (
-              <span className="text-cyan-600 dark:text-cyan-400">
-                Resume uploaded on {formatResumeDate(resumeUploadedAt)}
-              </span>
-            ) : (
-              <span>No resume uploaded yet</span>
+          {/* Resume status + view button */}
+          <div className="flex items-center gap-3 flex-wrap">
+            <div className="text-xs font-bold text-slate-500 dark:text-slate-400 flex items-center gap-2">
+              <FileText size={14} className={resumeUploadedAt ? "text-cyan-500" : ""} />
+              {resumeUploadedAt ? (
+                <span className="text-cyan-600 dark:text-cyan-400">
+                  Resume uploaded on {formatResumeDate(resumeUploadedAt)}
+                </span>
+              ) : (
+                <span>No resume uploaded yet</span>
+              )}
+            </div>
+            {/* View Resume button — only if text exists */}
+            {resumeText && (
+              <button
+                onClick={() => setShowResumeModal(true)}
+                className="inline-flex items-center gap-1.5 text-xs font-black uppercase tracking-wider text-cyan-600 dark:text-cyan-400 hover:text-cyan-800 dark:hover:text-cyan-200 transition"
+              >
+                <Eye size={13} />
+                View Resume
+              </button>
             )}
           </div>
 
@@ -548,6 +591,71 @@ export default function ProfileForm() {
           )}
         </div>
       </div>
+
+      {/* ── Resume Viewer Modal ── */}
+      {showResumeModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+          onClick={handleModalBackdropClick}
+        >
+          <div
+            ref={modalRef}
+            className="relative w-full max-w-2xl max-h-[85vh] flex flex-col bg-white dark:bg-zinc-950 rounded-[2rem] shadow-2xl border border-slate-100 dark:border-zinc-800 overflow-hidden"
+          >
+            {/* Modal header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-zinc-800 flex-shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-cyan-400 to-sky-500 flex items-center justify-center flex-shrink-0">
+                  <ScrollText size={16} className="text-white" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-black text-slate-900 dark:text-white">
+                    Resume Text
+                  </h3>
+                  <p className="text-[10px] text-slate-400 uppercase tracking-widest font-black">
+                    Extracted content · {profile.name}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowResumeModal(false)}
+                className="h-8 w-8 rounded-xl border border-slate-200 dark:border-zinc-700 text-slate-500 dark:text-slate-400 inline-flex items-center justify-center hover:bg-slate-100 dark:hover:bg-zinc-800 transition"
+                aria-label="Close resume viewer"
+              >
+                <X size={15} />
+              </button>
+            </div>
+
+            {/* Info pill */}
+            <div className="px-6 pt-3 flex-shrink-0">
+              <div className="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider text-slate-400 bg-slate-50 dark:bg-zinc-800/60 rounded-lg px-3 py-1.5">
+                <FileText size={11} />
+                Plain text extracted from your uploaded PDF
+              </div>
+            </div>
+
+            {/* Scrollable resume text */}
+            <div className="flex-1 overflow-y-auto px-6 py-4">
+              <pre className="whitespace-pre-wrap break-words text-sm text-slate-700 dark:text-slate-300 font-mono leading-relaxed">
+                {resumeText}
+              </pre>
+            </div>
+
+            {/* Modal footer */}
+            <div className="flex items-center justify-between px-6 py-3 border-t border-slate-100 dark:border-zinc-800 flex-shrink-0 bg-slate-50/60 dark:bg-zinc-900/60">
+              <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">
+                {resumeText.length.toLocaleString()} characters extracted
+              </span>
+              <button
+                onClick={() => setShowResumeModal(false)}
+                className="h-9 px-5 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-xl font-black uppercase tracking-wider text-[10px] transition hover:opacity-90"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
