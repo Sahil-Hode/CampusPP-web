@@ -6,13 +6,12 @@ import {
   Sparkles,
   Map,
   ChevronRight,
-  Clock,
-  Plus,
   LayoutGrid,
   Loader2,
   AlertCircle,
   Calendar,
-  Zap
+  Zap,
+  Trash2
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { apiRequest } from "@/lib/api";
@@ -37,6 +36,8 @@ export default function LearningPathList() {
   // Generation State
   const [goal, setGoal] = useState("");
   const [generating, setGenerating] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [confirmDeletePath, setConfirmDeletePath] = useState<LearningPathSummary | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   /* ---------------------------
@@ -107,6 +108,30 @@ export default function LearningPathList() {
       setError("Failed to generate learning path. Please try again.");
     } finally {
       setGenerating(false);
+    }
+  }
+
+  /* ---------------------------
+      DELETE learning path
+  ---------------------------- */
+  async function deletePath(learningPathId: string) {
+    if (!learningPathId || deletingId) return;
+
+    setDeletingId(learningPathId);
+    setError(null);
+
+    try {
+      await apiRequest(`/learning/${learningPathId}`, {
+        method: "DELETE",
+      });
+
+      setPaths((prev) => prev.filter((p) => p._id !== learningPathId));
+      setConfirmDeletePath(null);
+    } catch (err) {
+      console.error("Failed to delete learning path", err);
+      setError("Failed to delete learning path. Please try again.");
+    } finally {
+      setDeletingId(null);
     }
   }
 
@@ -222,8 +247,24 @@ export default function LearningPathList() {
                     <span className="bg-[#F6AD55]/10 text-[#F6AD55] px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider">
                       {path.status || "In Progress"}
                     </span>
-                    <div className="p-2 bg-slate-50 dark:bg-zinc-800 rounded-full text-slate-400">
-                      <Brain size={18} />
+                    <div className="flex items-center gap-2">
+                      <div className="p-2 bg-slate-50 dark:bg-zinc-800 rounded-full text-slate-400">
+                        <Brain size={18} />
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setConfirmDeletePath(path)}
+                        disabled={deletingId === path._id}
+                        className="p-2 bg-red-50 dark:bg-red-500/10 rounded-full text-red-500 hover:bg-red-100 dark:hover:bg-red-500/20 transition-colors disabled:opacity-60 cursor-pointer"
+                        aria-label={`Delete ${path.topic}`}
+                        title="Delete learning path"
+                      >
+                        {deletingId === path._id ? (
+                          <Loader2 size={16} className="animate-spin" />
+                        ) : (
+                          <Trash2 size={16} />
+                        )}
+                      </button>
                     </div>
                   </div>
 
@@ -248,6 +289,61 @@ export default function LearningPathList() {
           </div>
         )}
       </div>
+
+      <AnimatePresence>
+        {confirmDeletePath && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-[250] bg-slate-900/50 backdrop-blur-sm"
+              onClick={() => (deletingId ? null : setConfirmDeletePath(null))}
+            />
+            <motion.div
+              initial={{ opacity: 0, y: 16, scale: 0.98 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 10, scale: 0.98 }}
+              className="fixed left-4 right-4 md:left-1/2 md:-translate-x-1/2 top-1/2 -translate-y-1/2 z-[260] max-w-md rounded-[1.75rem] border-2 border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 p-6 shadow-2xl"
+            >
+              <h4 className="text-lg font-black text-slate-900 dark:text-white mb-2">
+                Confirm Deletion
+              </h4>
+              <p className="text-sm font-semibold text-slate-500 dark:text-zinc-400 leading-relaxed">
+                Are you sure you want to delete{" "}
+                <span className="text-slate-800 dark:text-zinc-100">&quot;{confirmDeletePath.topic}&quot;</span>?
+                This action cannot be undone.
+              </p>
+
+              <div className="mt-6 flex items-center justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => setConfirmDeletePath(null)}
+                  disabled={Boolean(deletingId)}
+                  className="px-4 py-2.5 rounded-xl border border-slate-300 dark:border-zinc-700 text-slate-700 dark:text-zinc-200 text-sm font-bold disabled:opacity-60 cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={() => deletePath(confirmDeletePath._id)}
+                  disabled={deletingId === confirmDeletePath._id}
+                  className="px-4 py-2.5 rounded-xl bg-red-500 text-white text-sm font-black disabled:opacity-60 inline-flex items-center gap-2 cursor-pointer"
+                >
+                  {deletingId === confirmDeletePath._id ? (
+                    <>
+                      <Loader2 size={14} className="animate-spin" />
+                      Deleting...
+                    </>
+                  ) : (
+                    "Delete"
+                  )}
+                </button>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
