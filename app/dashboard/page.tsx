@@ -1,272 +1,406 @@
 "use client";
 
-import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
+import React, { useState, useEffect } from 'react';
 import {
-  Mic,
-  MicOff,
-  Languages,
-  Volume2,
-  Play,
-  Pause,
-  Captions,
-} from "lucide-react";
-import { motion } from "framer-motion";
+  Zap, Sparkles, TrendingUp, Activity, Shield, Clock,
+  Target, ArrowRight, GraduationCap, BarChart3, RefreshCw, AlertCircle, Lightbulb
+} from 'lucide-react';
+import { apiRequest } from '@/lib/api';
+import {
+  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
+  ResponsiveContainer, BarChart, Bar, Cell
+} from 'recharts';
 
-// Three.js/WebGL — must be lazy-loaded (browser only).
-const MentorModel = lazy(() => import("./3d-mentor/MentorModel"));
+// --- DASHBOARD THEME CONSTANTS ---
+const BORDER = "border-2 border-[#DCE4EE] dark:border-zinc-800";
+const HOVER = "transition-colors duration-300 hover:border-[#61C6EA]/45 dark:hover:border-[#61C6EA]/45";
 
-type SpeechRecognitionAlternativeLike = {
-  transcript: string;
+// --- Styled Components ---
+const Card = ({ children, className = "", variant = "default" }: { children: React.ReactNode; className?: string; variant?: string }) => {
+  const variants = {
+    default: "bg-white/95 dark:bg-zinc-900",
+    mint: "bg-[#61C6EA]/10 dark:bg-[#61C6EA]/12",
+    purple: "bg-[#B7A4EA]/12 dark:bg-[#B7A4EA]/12",
+    orange: "bg-[#8EB8E8]/12 dark:bg-[#8EB8E8]/12",
+    blue: "bg-[#61C6EA]/14 dark:bg-[#61C6EA]/14"
+  };
+  const bg = variants[variant as keyof typeof variants] || variants.default;
+  
+  return (
+    <div className={`${bg} ${BORDER} ${HOVER} rounded-[2rem] p-6 ${className}`}>
+      {children}
+    </div>
+  );
 };
 
-type SpeechRecognitionResultLike = {
-  isFinal: boolean;
-  [index: number]: SpeechRecognitionAlternativeLike;
+const Skeleton = ({ className = "" }: { className?: string }) => (
+  <div className={`animate-pulse bg-black/10 dark:bg-white/10 rounded-xl ${className}`} />
+);
+
+const CustomTooltip = ({ active, payload, label }: any) => {
+  if (active && payload && payload.length) {
+    return (
+      <div className={`bg-white dark:bg-zinc-900 ${BORDER} p-3 rounded-xl`}>
+        <p className="font-black text-[10px] uppercase text-[#8799B5] dark:text-slate-500 mb-1">{label}</p>
+        <p className="font-black text-lg text-[#0D1833] dark:text-white">{payload[0].value}%</p>
+      </div>
+    );
+  }
+  return null;
 };
 
-type SpeechRecognitionEventLike = {
-  resultIndex: number;
-  results: ArrayLike<SpeechRecognitionResultLike>;
+// --- TypeScript Types ---
+interface SummaryData { overallScore: number; riskLevel: string; consistency: string; engagement: string; }
+interface OverviewData { attendance: number; avgScore: number; completionRate: number; }
+interface ScoreItem { subject: string; score: number; color: string; }
+interface TrendItem { date: string; score: number; }
+interface RiskData { level: string; score: number; explanation: string; }
+interface RecommendationItem { id: string | number; type: string; text: string; }
+interface InterventionItem { id: number; issue: string; decision: string; intervention: string; status: string; }
+interface PerformanceDataState {
+  summary: SummaryData | null; overview: OverviewData | null; scores: ScoreItem[] | null;
+  trends: TrendItem[] | null; risk: RiskData; recommendations: RecommendationItem[] | null;
+  intervention: InterventionItem[] | null;
+}
+
+// --- API Helpers (Restored) ---
+const getDeepValue = (obj: any, keys: string[]) => {
+  if (!obj) return null;
+  for (const key of keys) { if (obj[key] !== undefined) return obj[key]; }
+  const wrappers = ['data', 'performance', 'stats', 'result'];
+  for (const wrapper of wrappers) {
+    if (obj[wrapper]) {
+      for (const key of keys) { if (obj[wrapper][key] !== undefined) return obj[wrapper][key]; }
+    }
+  }
+  return null;
 };
 
-type SpeechRecognitionLike = {
-  continuous: boolean;
-  interimResults: boolean;
-  lang: string;
-  onresult: ((event: SpeechRecognitionEventLike) => void) | null;
-  onend: (() => void) | null;
-  start: () => void;
-  stop: () => void;
+const toNum = (val: any) => {
+  if (typeof val === 'number') return val;
+  if (!val) return 0;
+  const cleaned = String(val).replace(/[^0-9.]/g, '');
+  return parseFloat(cleaned) || 0;
 };
 
-type SpeechRecognitionCtor = new () => SpeechRecognitionLike;
+async function fetchPerformanceData(endpoint: string) {
+  try {
+    const res = await apiRequest(endpoint);
+    return res;
+  } catch (error) {
+    console.error(`[Dashboard API] Error fetching ${endpoint}:`, error);
+    throw error;
+  }
+}
 
-export default function Mentor3DPage() {
-  const [isMicOn, setIsMicOn] = useState(false);
-  const [isAudioOn, setIsAudioOn] = useState(true);
-  const [isSubtitleOn, setIsSubtitleOn] = useState(true);
-  const [isSessionActive, setIsSessionActive] = useState(false);
-  const [language, setLanguage] = useState("en");
+const BASE_URL = "/student/performance";
 
-  const [liveText, setLiveText] = useState("");
-  const [finalText, setFinalText] = useState("");
-
-  const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
-  const micOnRef = useRef(false);
-  const sessionRef = useRef(false);
-
-  const [isSpeechSupported] = useState(() => {
-    if (typeof window === "undefined") return true;
-    const w = window as Window & {
-      SpeechRecognition?: SpeechRecognitionCtor;
-      webkitSpeechRecognition?: SpeechRecognitionCtor;
-    };
-    return Boolean(w.SpeechRecognition || w.webkitSpeechRecognition);
+export default function DashboardPage() {
+  const [loadingStates, setLoadingStates] = useState<Record<string, boolean>>({
+    summary: true, overview: true, scores: true, trends: true, risk: true, recommendations: true, intervention: true
   });
 
-  useEffect(() => {
-    micOnRef.current = isMicOn;
-    sessionRef.current = isSessionActive;
-  }, [isMicOn, isSessionActive]);
+  const [data, setData] = useState<PerformanceDataState>({
+    summary: null, overview: null, scores: [], trends: [], risk: { level: 'Low', score: 0, explanation: 'Awaiting analysis...' },
+    recommendations: [], intervention: []
+  });
 
-  useEffect(() => {
-    if (typeof window === "undefined") return;
+  const [errors, setErrors] = useState<Record<string, string>>({});
 
-    const w = window as Window & {
-      SpeechRecognition?: SpeechRecognitionCtor;
-      webkitSpeechRecognition?: SpeechRecognitionCtor;
-    };
+  const fetchData = async (key: keyof PerformanceDataState, endpoint: string) => {
+    try {
+      setLoadingStates(prev => ({ ...prev, [key]: true }));
+      const rawRes = await fetchPerformanceData(endpoint);
+      let result: any = rawRes?.data || rawRes;
 
-    const SpeechRecognition =
-      w.SpeechRecognition || w.webkitSpeechRecognition;
+      if (key === 'summary') {
+        const perf = rawRes?.data?.currentPerformance || rawRes?.currentPerformance || rawRes?.data || rawRes;
+        result = {
+          overallScore: toNum(getDeepValue(perf, ['score', 'overallScore', 'overall_score'])),
+          riskLevel: getDeepValue(perf, ['riskLevel', 'level', 'status']) || 'Low',
+          consistency: getDeepValue(perf, ['trends', 'consistency', 'habit']) || 'Stable',
+          engagement: getDeepValue(perf, ['attendance', 'engagement', 'participation']) ?
+            `${getDeepValue(perf, ['attendance', 'engagement', 'participation'])}%` : '0%'
+        };
+      }
 
-    if (!SpeechRecognition) return;
+      if (key === 'overview') {
+        const d = rawRes?.data || rawRes;
+        result = {
+          attendance: toNum(getDeepValue(d, ['attendance', 'attendanceRate'])),
+          avgScore: toNum(getDeepValue(d, ['overallScore', 'avgScore', 'averageScore', 'score'])),
+          completionRate: toNum(getDeepValue(d, ['completionRate', 'progress', 'internalMarks']))
+        };
+      }
 
-    const recognition = new SpeechRecognition();
-    recognition.continuous = true;
-    recognition.interimResults = true;
+      if (key === 'risk') {
+        const d = rawRes?.data || rawRes;
+        const factors = d.riskFactors || [];
+        result = {
+          level: getDeepValue(d, ['riskLevel', 'level', 'status']) || 'Low',
+          score: d.isAtRisk ? 75 : 15,
+          explanation: Array.isArray(factors) && factors.length > 0 ? factors.join(', ') : 'No specific risks detected.'
+        };
+      }
 
-    const localeMap: Record<string, string> = {
-      en: "en-IN",
-      hi: "hi-IN",
-      mr: "mr-IN",
-    };
-
-    recognition.lang = localeMap[language] || "en-IN";
-
-    recognition.onresult = (event: SpeechRecognitionEventLike) => {
-      let interim = "";
-      let finalChunk = "";
-
-      for (let i = event.resultIndex; i < event.results.length; i++) {
-        const transcript = event.results[i][0]?.transcript || "";
-        if (event.results[i].isFinal) {
-          finalChunk += transcript;
+      if (key === 'trends') {
+        const d = rawRes?.data || rawRes;
+        if (d.trends && typeof d.trends === 'string') {
+          result = [{ date: d.analysisDate ? new Date(d.analysisDate).toLocaleDateString() : 'Current', score: 0 }];
         } else {
-          interim += transcript;
+          const trendsArr = d.trends || d || [];
+          result = Array.isArray(trendsArr) ? trendsArr.map((t: any) => ({
+            date: t.date || t.label || t.name || t.week || 'N/A',
+            score: toNum(t.score || t.value || t.marks)
+          })) : [];
         }
       }
 
-      setLiveText(interim.trim());
-
-      if (finalChunk.trim()) {
-        setFinalText((prev) =>
-          `${prev} ${finalChunk.trim()}`.trim()
-        );
+      if (key === 'scores') {
+        const d = rawRes?.data || rawRes;
+        const colors = ['#61C6EA', '#8DB6E8', '#B7A4EA', '#91BFEF', '#76CFEE'];
+        if (d && !Array.isArray(d) && (d.attendance || d.internalMarks || d.assignmentScore)) {
+          const mapping = [
+            { key: 'attendance', label: 'Attendance' },
+            { key: 'internalMarks', label: 'Internal Marks' },
+            { key: 'assignmentScore', label: 'Assignments' },
+            { key: 'overallScore', label: 'Overall' },
+            { key: 'lmsEngagement', label: 'LMS Engagement' }
+          ];
+          result = mapping.map((m, i) => ({
+            subject: m.label, score: toNum(d[m.key]), color: colors[i % colors.length]
+          }));
+        } else {
+          const scoresArr = d.scores || d || [];
+          result = Array.isArray(scoresArr) ? scoresArr.map((s: any, i: number) => ({
+            subject: s.subject || s.name || s.label || s.module || 'N/A',
+            score: toNum(s.score || s.value || s.marks),
+            color: s.color || colors[i % colors.length]
+          })) : [];
+        }
       }
-    };
 
-    recognition.onend = () => {
-      if (micOnRef.current && sessionRef.current) {
-        try {
-          recognition.start();
-        } catch { }
+      if (key === 'intervention') {
+        const items = rawRes?.data || rawRes?.items || rawRes || [];
+        result = Array.isArray(items) ? items : [];
       }
-    };
 
-    recognitionRef.current = recognition;
+      if (key === 'recommendations') {
+        const d = rawRes?.data || rawRes;
+        const combined = [
+          ...(d.recommendations || []).map((r: string, i: number) => ({ id: `rec-${i}`, text: r, type: 'study' })),
+          ...(d.strengths || []).map((s: string, i: number) => ({ id: `str-${i}`, text: `Strength: ${s}`, type: 'career' })),
+          ...(d.concerns || []).map((c: string, i: number) => ({ id: `con-${i}`, text: `Concern: ${c}`, type: 'risk' }))
+        ];
+        result = combined.length > 0 ? combined : (Array.isArray(d) ? d : []);
+      }
 
-    return () => {
-      try {
-        recognition.stop();
-      } catch { }
-    };
-  }, [language]);
+      setData(prev => ({ ...prev, [key]: result }));
+    } catch (err) {
+      setErrors(prev => ({ ...prev, [key]: (err as Error).message }));
+    } finally {
+      setLoadingStates(prev => ({ ...prev, [key]: false }));
+    }
+  };
 
   useEffect(() => {
-    const recognition = recognitionRef.current;
-    if (!recognition) return;
+    fetchData('summary', BASE_URL);
+    fetchData('overview', `${BASE_URL}/overview`);
+    fetchData('scores', `${BASE_URL}/scores`);
+    fetchData('trends', `${BASE_URL}/trends`);
+    fetchData('risk', `${BASE_URL}/risk`);
+    fetchData('recommendations', `${BASE_URL}/recommendations`);
+    fetchData('intervention', `${BASE_URL}/intervention`);
+  }, []);
 
-    if (isSessionActive && isMicOn) {
-      try {
-        recognition.start();
-      } catch { }
-    } else {
-      try {
-        recognition.stop();
-      } catch { }
+  const getRiskColor = (level: string | undefined) => {
+    switch (level?.toLowerCase()) {
+      case 'high': case 'critical': return 'bg-[#E96D7C] text-white';
+      case 'medium': return 'bg-[#91BFEF] text-[#0D1833]';
+      default: return 'bg-[#61C6EA] text-white';
     }
-  }, [isSessionActive, isMicOn]);
-
-  const statusText = useMemo(() => {
-    if (!isSessionActive) return "Session idle";
-    return isMicOn ? "Listening..." : "Mic paused";
-  }, [isSessionActive, isMicOn]);
+  };
 
   return (
-    <div className="min-h-full rounded-[2rem] border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4 md:p-6">
-      <div className="mb-6">
-        <h1 className="text-2xl md:text-3xl font-black tracking-tight text-slate-900 dark:text-white">
-          3D Live Mentor Bot
-        </h1>
-        <p className="mt-2 text-sm font-medium text-slate-500 dark:text-zinc-400">
-          Speech-to-speech mentor interface with real-time subtitles.
-        </p>
+    <div className="space-y-8 pb-12 text-[#0D1833] dark:text-white transition-colors duration-300 bg-[radial-gradient(circle_at_top,rgba(97,198,234,0.12),rgba(183,164,234,0.08)_38%,rgba(255,255,255,0)_72%)]">
+      
+      {/* HEADER */}
+      <header className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+        <div className="space-y-2">
+          <div className="flex items-center gap-2">
+            <div className={`p-1.5 bg-[#61C6EA]/10 text-[#61C6EA] ${BORDER} rounded-lg`}>
+              <Sparkles size={16} />
+            </div>
+            <span className="text-[10px] font-black text-[#8799B5] uppercase tracking-[0.4em]">
+              Campus++ Intelligence v4.0
+            </span>
+          </div>
+          <h1 className="text-5xl md:text-6xl font-[1000] tracking-tighter uppercase italic text-[#0D1833] dark:text-white">
+            Student <span className="text-transparent bg-gradient-to-r from-[#61C6EA] to-[#B7A4EA] bg-clip-text">Analytics</span>
+          </h1>
+        </div>
+
+        <button
+          onClick={() => window.location.reload()}
+          className={`flex items-center gap-2 px-8 py-4 bg-[#61C6EA] text-white ${BORDER} rounded-2xl font-black text-sm uppercase hover:bg-[#49b8df] transition-colors`}
+        >
+          <RefreshCw size={18} strokeWidth={3} />
+          Sync Data
+        </button>
+      </header>
+
+      {/* TOP GRID */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <Card className="lg:col-span-1 border-l-[12px] border-l-[#61C6EA]">
+          <div className="flex justify-between items-start mb-6">
+            <h3 className="font-black uppercase tracking-widest text-xs text-[#8799B5]">Power Level</h3>
+            {loadingStates.summary ? <Skeleton className="w-16 h-6" /> : (
+              <span className={`px-4 py-1 rounded-lg ${BORDER} text-[10px] font-black uppercase ${getRiskColor(data.summary?.riskLevel)}`}>
+                {data.summary?.riskLevel || 'Low'} Risk
+              </span>
+            )}
+          </div>
+          <div className="text-8xl font-[1000] tracking-tighter leading-none mb-8">
+            {data.summary?.overallScore || 0}%
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className={`p-4 bg-[#B7A4EA]/12 dark:bg-[#B7A4EA]/12 ${BORDER} rounded-2xl`}>
+              <p className="text-[10px] font-black uppercase text-[#8799B5]">Consistency</p>
+              <p className="font-black text-lg">{data.summary?.consistency || '--'}</p>
+            </div>
+            <div className={`p-4 bg-[#61C6EA]/12 dark:bg-[#61C6EA]/12 ${BORDER} rounded-2xl`}>
+              <p className="text-[10px] font-black uppercase text-[#8799B5]">Engagement</p>
+              <p className="font-black text-lg">{data.summary?.engagement || '--'}</p>
+            </div>
+          </div>
+        </Card>
+
+        <div className="lg:col-span-2 grid grid-cols-1 sm:grid-cols-3 gap-4">
+          {[
+            { label: 'Attendance', value: data.overview?.attendance, icon: Clock, variant: 'mint' },
+            { label: 'Avg Score', value: data.overview?.avgScore, icon: GraduationCap, variant: 'purple' },
+            { label: 'Completion', value: data.overview?.completionRate, icon: Target, variant: 'orange' }
+          ].map((kpi, i) => (
+            <Card key={i} variant={kpi.variant} className="flex flex-col items-center justify-center text-center">
+              <div className={`p-4 bg-white dark:bg-zinc-900 ${BORDER} rounded-2xl mb-4`}>
+                <kpi.icon size={28} strokeWidth={3} className="text-[#0D1833] dark:text-slate-200" />
+              </div>
+              <div className="text-5xl font-[1000] mb-1">{kpi.value || 0}%</div>
+              <div className="text-[10px] font-black uppercase tracking-widest text-[#8799B5]">{kpi.label}</div>
+            </Card>
+          ))}
+        </div>
       </div>
 
-      <motion.section
-        initial={{ opacity: 0, y: 12 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="w-full rounded-[1.5rem] border border-slate-200 dark:border-zinc-800 overflow-hidden"
-      >
-        {/* 3D MODEL AREA */}
-        <div className="h-[360px] md:h-[430px] bg-gradient-to-br from-sky-100 via-cyan-50 to-slate-100 dark:from-zinc-900 dark:via-zinc-950 dark:to-zinc-900 relative">
+      {/* CHARTS */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <Card className="min-h-[400px]">
+          <div className="flex items-center gap-3 mb-8 font-black uppercase italic">
+            <TrendingUp size={24} strokeWidth={3} /> Improvement Trend
+          </div>
+          <div className="h-[280px] w-full">
+            <ResponsiveContainer>
+              <AreaChart data={data.trends}>
+                <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="#AAB8CC" strokeOpacity={0.35} />
+                <XAxis dataKey="date" tick={{ fontWeight: 900, fontSize: 10, fill: 'currentColor' }} axisLine={false} />
+                <Tooltip content={<CustomTooltip />} />
+                <Area type="step" dataKey="score" stroke="#0D1833" dark-stroke="#fff" strokeWidth={3} fill="#61C6EA" fillOpacity={0.35} />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+        </Card>
 
-          <div className="absolute inset-0">
-            <Suspense
-              fallback={
-                <div className="flex items-center justify-center h-full">
-                  <div
-                    style={{
-                      width: 48,
-                      height: 48,
-                      border: "4px solid rgba(255,255,255,0.15)",
-                      borderTop: "4px solid #38bdf8",
-                      borderRadius: "50%",
-                      animation: "spin 0.9s linear infinite",
-                    }}
-                  />
-                  <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+        <Card className="min-h-[400px]">
+          <div className="flex items-center gap-3 mb-8 font-black uppercase italic">
+            <BarChart3 size={24} strokeWidth={3} /> Module Breakdown
+          </div>
+          <div className="h-[280px] w-full">
+            <ResponsiveContainer>
+              <BarChart data={data.scores} layout="vertical">
+                <XAxis type="number" hide domain={[0, 100]} />
+                <YAxis dataKey="subject" type="category" tick={{ fontWeight: 900, fontSize: 10, fill: 'currentColor' }} width={90} axisLine={false} tickLine={false} />
+                <Tooltip content={<CustomTooltip />} />
+                <Bar dataKey="score" radius={[0, 8, 8, 0]} stroke="#B8C6D8" strokeWidth={1}>
+                  {data.scores?.map((entry, index) => <Cell key={`cell-${index}`} fill={entry.color} />)}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </Card>
+      </div>
+
+      {/* RISK & TIMELINE */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <Card className="bg-[#EFF7FC] dark:bg-zinc-900 hover:border-[#61C6EA]/45">
+          <div className="flex items-center gap-3 mb-6 font-black uppercase italic">
+            <Shield size={24} strokeWidth={3} className="text-[#61C6EA]" /> Risk Radar
+          </div>
+          <div className="text-7xl font-[1000] mb-2">{data.risk.score}%</div>
+          <div className={`inline-block px-4 py-1.5 rounded-xl ${BORDER} text-[10px] font-black uppercase mb-6 ${getRiskColor(data.risk.level)}`}>
+            {data.risk.level} Criticality
+          </div>
+          <div className={`p-4 bg-white dark:bg-zinc-900 ${BORDER} rounded-2xl italic font-bold text-sm`}>
+            &quot;{data.risk.explanation}&quot;
+          </div>
+        </Card>
+
+        <Card className="lg:col-span-2">
+          <div className="flex items-center justify-between mb-8">
+            <div className="flex items-center gap-3 font-black uppercase italic text-xl">
+              <Activity size={24} strokeWidth={3} className="text-[#61C6EA]" /> Intervention Log
+            </div>
+            <span className="text-[10px] font-black text-[#8799B5] uppercase tracking-widest">Decision Ledger</span>
+          </div>
+          <div className="space-y-4">
+            {data.intervention?.map((item, idx) => (
+              <div key={item.id} className={`flex flex-col md:flex-row md:items-center justify-between p-5 ${BORDER} bg-[#F7FAFD] dark:bg-zinc-800/40 rounded-[24px]`}>
+                <div className="flex items-center gap-5">
+                   <span className="font-[1000] text-3xl opacity-10">0{idx + 1}</span>
+                   <div>
+                      <p className="text-[10px] font-black uppercase text-[#8799B5]">Issue</p>
+                      <p className="font-black text-lg">{item.issue}</p>
+                   </div>
                 </div>
-              }
-            >
-              <MentorModel />
-            </Suspense>
+                <div className={`mt-3 md:mt-0 px-4 py-2 rounded-xl ${BORDER} text-xs font-black uppercase bg-white dark:bg-zinc-900`}>
+                  {item.status}
+                </div>
+              </div>
+            ))}
           </div>
+        </Card>
+      </div>
 
-          {isSubtitleOn &&
-            (liveText ||
-              finalText ||
-              (isMicOn && isSessionActive)) && (
-              <p className="absolute left-4 right-4 bottom-4 z-20 text-center text-white font-semibold text-lg drop-shadow-[0_2px_8px_rgba(0,0,0,0.75)]">
-                {liveText || finalText || "Speak now..."}
-              </p>
-            )}
+      {/* RECOMMENDATIONS */}
+      <section className="space-y-6">
+        <div className="flex items-center gap-4">
+          <Lightbulb size={32} className="text-[#61C6EA] fill-current" />
+          <h3 className="text-4xl font-[1000] uppercase italic tracking-tighter">Growth Hacks</h3>
         </div>
-
-        {/* CONTROLS */}
-        <div className="p-4 md:p-5 border-t border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-950">
-          <div className="flex flex-wrap items-center gap-3">
-
-            <button
-              onClick={() => {
-                const next = !isSessionActive;
-                setIsSessionActive(next);
-                if (!next) setIsMicOn(false);
-              }}
-              className="inline-flex items-center gap-2 rounded-xl px-4 py-2.5 bg-slate-900 text-white dark:bg-white dark:text-zinc-900 font-bold text-sm"
-            >
-              {isSessionActive ? (
-                <Pause className="w-4 h-4" />
-              ) : (
-                <Play className="w-4 h-4" />
-              )}
-              {isSessionActive ? "End Session" : "Start Session"}
-            </button>
-
-            <button
-              onClick={() => setIsMicOn((prev) => !prev)}
-              disabled={!isSessionActive}
-              className={`inline-flex items-center gap-2 rounded-xl px-4 py-2.5 font-bold text-sm transition ${isMicOn
-                ? "bg-rose-500 text-white"
-                : "bg-white dark:bg-zinc-900 text-slate-700 dark:text-zinc-100 border border-slate-200 dark:border-zinc-700"
-                } disabled:opacity-50 disabled:cursor-not-allowed`}
-            >
-              {isMicOn ? (
-                <Mic className="w-4 h-4" />
-              ) : (
-                <MicOff className="w-4 h-4" />
-              )}
-              {isMicOn ? "Mic On" : "Mic Off"}
-            </button>
-
-            <button
-              onClick={() => setIsSubtitleOn((prev) => !prev)}
-              className={`inline-flex items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-bold border ${isSubtitleOn
-                ? "bg-sky-500 border-sky-500 text-white"
-                : "bg-white dark:bg-zinc-900 border-slate-200 dark:border-zinc-700 text-slate-700 dark:text-zinc-100"
-                }`}
-            >
-              <Captions className="w-4 h-4" />
-              {isSubtitleOn ? "CC On" : "CC Off"}
-            </button>
-
-          </div>
-
-          <p className="mt-3 text-xs font-semibold text-slate-500 dark:text-zinc-400">
-            Status:{" "}
-            <span className="text-slate-700 dark:text-zinc-200">
-              {statusText}
-            </span>
-          </p>
-
-          {!isSpeechSupported && (
-            <p className="mt-2 text-xs font-semibold text-rose-500">
-              Live speech recognition is not supported in this browser.
-            </p>
-          )}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {data.recommendations?.map((rec) => (
+            <div key={rec.id} className={`p-8 bg-white dark:bg-zinc-900 ${BORDER} rounded-[32px] group relative overflow-hidden transition-colors hover:border-[#61C6EA]/45`}>
+              <div className={`w-14 h-14 ${BORDER} bg-[#61C6EA]/12 dark:bg-[#61C6EA]/10 rounded-2xl flex items-center justify-center mb-6`}>
+                <Zap size={24} strokeWidth={3} className="text-[#61C6EA]" />
+              </div>
+              <p className="font-black text-xl leading-tight mb-8 dark:text-white/90">{rec.text}</p>
+              <button className="flex items-center gap-2 text-xs font-[1000] uppercase tracking-tighter text-[#61C6EA] group-hover:gap-4 transition-all">
+                Execute Protocol <ArrowRight size={16} />
+              </button>
+            </div>
+          ))}
         </div>
-      </motion.section>
+      </section>
+
+      {/* ERRORS */}
+      {Object.keys(errors).length > 0 && (
+        <div className="fixed bottom-6 right-6 z-[999] space-y-3">
+          {Object.entries(errors).map(([k, v]) => (
+            <div key={k} className={`p-5 bg-red-500 ${BORDER} rounded-2xl text-[10px] font-black uppercase flex items-center gap-4 animate-in slide-in-from-right text-white`}>
+              <AlertCircle size={20} /> <div><p className="opacity-70">Sync Error: {k}</p><p>{v}</p></div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

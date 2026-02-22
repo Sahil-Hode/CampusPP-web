@@ -7,7 +7,7 @@ import { Suspense } from "react";
 
 function Model() {
   const { scene } = useGLTF("/model.glb");
-  return <primitive object={scene} scale={2} />;
+  return <primitive object={scene} scale={2.6} position={[0, -0.15, 0]} />;
 }
 
 function FallbackSpinner() {
@@ -44,7 +44,6 @@ export default function MentorModel() {
   }, []);
 
   if (webGLSupported === null) {
-    // Not yet determined (SSR / first paint) — show nothing or a lightweight spinner
     return <FallbackSpinner />;
   }
 
@@ -58,7 +57,7 @@ export default function MentorModel() {
 
   return (
     <Canvas
-      camera={{ position: [0, 1.2, 3] }}
+      camera={{ position: [0, 1.45, 1.8], fov: 35 }}
       style={{ width: "100%", height: "100%" }}
       gl={{ antialias: true }}
     >
@@ -69,7 +68,13 @@ export default function MentorModel() {
         <Model />
       </Suspense>
 
-      <OrbitControls enableZoom={false} enablePan={false} />
+      <OrbitControls
+        enableZoom
+        enablePan={false}
+        minDistance={1.2}
+        maxDistance={2.4}
+        target={[0, 1.45, 0]}
+      />
     </Canvas>
   );
 }

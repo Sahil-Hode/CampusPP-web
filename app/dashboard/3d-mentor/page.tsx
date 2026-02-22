@@ -163,7 +163,12 @@ export default function Mentor3DPage() {
         className="w-full rounded-[1.5rem] border border-slate-200 dark:border-zinc-800 overflow-hidden"
       >
         {/* 3D AREA */}
-        <div className="h-[360px] md:h-[430px] relative bg-gradient-to-br from-sky-100 via-cyan-50 to-slate-100 dark:from-zinc-900 dark:via-zinc-950 dark:to-zinc-900">
+        <div className="h-[360px] md:h-[430px] relative bg-black">
+          <div
+            className="absolute inset-0 bg-cover bg-center bg-no-repeat opacity-100"
+            style={{ backgroundImage: "url('/3d mentor bg.jpeg')" }}
+          />
+          <div className="absolute inset-0 bg-gradient-to-b from-black/10 via-black/20 to-black/35" />
 
           <div className="absolute inset-0">
             <Suspense fallback={<ModelSpinner />}>
