@@ -104,3 +104,40 @@ body {
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
   background: rgba(99, 210, 243, 0.3);
 }
+
+/* =========================
+   ANIMATED AVATAR KEYFRAMES
+   ========================= */
+
+/* Gentle floating idle */
+@keyframes avatarFloat {
+  0%   { transform: translateY(0px); }
+  50%  { transform: translateY(-6px); }
+  100% { transform: translateY(0px); }
+}
+
+/* Shimmer sweep across avatar when speaking */
+@keyframes avatarShimmer {
+  0%   { background-position: -200% center; }
+  100% { background-position: 200% center; }
+}
+
+/* Mic pulse dot when speaking */
+@keyframes micPulse {
+  0%, 100% { transform: scale(1);   opacity: 1;    }
+  50%       { transform: scale(1.5); opacity: 0.6;  }
+}
+
+/* Equalizer bars — 3 variants for staggered animation */
+@keyframes avatarBar1 {
+  from { height: 4px;  }
+  to   { height: 14px; }
+}
+@keyframes avatarBar2 {
+  from { height: 6px;  }
+  to   { height: 18px; }
+}
+@keyframes avatarBar3 {
+  from { height: 3px;  }
+  to   { height: 10px; }
+}
