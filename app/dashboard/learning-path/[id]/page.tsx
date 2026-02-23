@@ -10,7 +10,8 @@ import {
     Lock,
     Loader2,
     AlertTriangle,
-    PlayCircle
+    PlayCircle,
+    Timer
 } from "lucide-react";
 import { motion } from "framer-motion";
 import Link from "next/link";
@@ -24,6 +25,9 @@ type LearningPathStep = {
     courseIndex: number;
     stepIndex: number;
     moduleTitle?: string;
+    cooldownUntil?: string | null;
+    cooldownRemainingMinutes?: number | null;
+    cooldownCapturedAt?: number | null;
 };
 
 type LearningPathCourse = {
@@ -41,6 +45,8 @@ type LearningPathStepRaw = {
     description?: string;
     quizStatus?: string;
     status?: string;
+    cooldownUntil?: string | null;
+    cooldownRemainingMinutes?: number | null;
 };
 
 type LearningPathApiData = {
@@ -62,12 +68,14 @@ export default function LearningPathDetail() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [updating, setUpdating] = useState<string | null>(null);
+    const [now, setNow] = useState(() => Date.now());
 
     const fetchPathDetail = useCallback(async () => {
         try {
             setLoading(true);
             const res = (await apiRequest(`/learning/${id}`, { method: "GET" })) as ApiResponse<LearningPathApiData>;
             const data = res.data || res;
+            const capturedAt = Date.now();
 
             const rawCourses = (data.courses || data.path || []) as LearningPathCourse[] | LearningPathStepRaw[];
             const hasNestedSteps = rawCourses.length > 0 && Array.isArray((rawCourses[0] as LearningPathCourse)?.steps);
@@ -81,7 +89,10 @@ export default function LearningPathDetail() {
                         status: step.quizStatus || step.status || "pending",
                         courseIndex: cIdx,
                         stepIndex: sIdx,
-                        moduleTitle: course.title || `Module ${cIdx + 1}`
+                        moduleTitle: course.title || `Module ${cIdx + 1}`,
+                        cooldownUntil: step.cooldownUntil ?? null,
+                        cooldownRemainingMinutes: step.cooldownRemainingMinutes ?? null,
+                        cooldownCapturedAt: step.cooldownRemainingMinutes ? capturedAt : null
                     }))
                 )
                 : (rawCourses as LearningPathStepRaw[]).map((s, i: number) => ({
@@ -91,7 +102,10 @@ export default function LearningPathDetail() {
                     status: s.quizStatus || s.status || "pending",
                     courseIndex: 0,
                     stepIndex: i,
-                    moduleTitle: "Module 1"
+                    moduleTitle: "Module 1",
+                    cooldownUntil: s.cooldownUntil ?? null,
+                    cooldownRemainingMinutes: s.cooldownRemainingMinutes ?? null,
+                    cooldownCapturedAt: s.cooldownRemainingMinutes ? capturedAt : null
                 }));
 
             setPath({
@@ -110,6 +124,40 @@ export default function LearningPathDetail() {
     useEffect(() => {
         if (id) fetchPathDetail();
     }, [id, fetchPathDetail]);
+
+    useEffect(() => {
+        if (!path) return;
+        const hasCooldown = path.courses.some((step) => step.status === "cooldown");
+        if (!hasCooldown) return;
+        const intervalId = window.setInterval(() => {
+            setNow(Date.now());
+        }, 1000);
+        return () => window.clearInterval(intervalId);
+    }, [path]);
+
+    function getCooldownRemainingMs(step: LearningPathStep) {
+        if (step.cooldownUntil) {
+            const untilMs = Date.parse(step.cooldownUntil);
+            if (!Number.isNaN(untilMs)) {
+                return Math.max(0, untilMs - now);
+            }
+        }
+        if (typeof step.cooldownRemainingMinutes === "number" && step.cooldownCapturedAt) {
+            const remainingMs = step.cooldownRemainingMinutes * 60 * 1000 - (now - step.cooldownCapturedAt);
+            return Math.max(0, remainingMs);
+        }
+        return null;
+    }
+
+    function formatCountdown(ms: number) {
+        const totalSeconds = Math.max(0, Math.floor(ms / 1000));
+        const hours = Math.floor(totalSeconds / 3600);
+        const minutes = Math.floor((totalSeconds % 3600) / 60);
+        const seconds = totalSeconds % 60;
+        if (hours > 0) return `${hours} hr ${minutes} min ${seconds} sec`;
+        if (minutes > 0) return `${minutes} min ${seconds} sec`;
+        return `${seconds} sec`;
+    }
 
     async function updateProgress(index: number, currentStatus: string) {
         if (!path) return;
@@ -188,6 +236,8 @@ export default function LearningPathDetail() {
                             : (steps[index - 1].status === "completed" || steps[index - 1].status === "passed");
                         const isInCooldown = step.status === "cooldown";
                         const isLocked = !prevCompleted || step.status === "locked" || isInCooldown;
+                        const cooldownMs = getCooldownRemainingMs(step);
+                        const cooldownLabel = cooldownMs !== null ? formatCountdown(cooldownMs) : "24 hr";
 
                         return (
                             <motion.div 
@@ -220,7 +270,7 @@ export default function LearningPathDetail() {
                                                 </span>
                                                 {isInCooldown && (
                                                     <span className="text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full bg-red-500/15 text-red-300 flex items-center gap-2 border border-red-500/30">
-                                                        <AlertTriangle size={12} /> Cooldown 24h
+                                                        <Timer size={12} /> Cooldown {cooldownLabel}
                                                     </span>
                                                 )}
                                                 {isLocked && <Lock size={14} className="text-zinc-600" />}
@@ -231,7 +281,7 @@ export default function LearningPathDetail() {
                                             {isInCooldown && (
                                                 <div className="mt-2 inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-red-500/10 border border-red-500/30 text-sm font-semibold text-red-500">
                                                     <AlertTriangle size={16} />
-                                                    Quiz locked due to cooldown. Try again after 24 hours.
+                                                    Quiz locked due to cooldown. Unlocks in {cooldownLabel}.
                                                 </div>
                                             )}
                                             
