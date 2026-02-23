@@ -1,13 +1,93 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { Canvas } from "@react-three/fiber";
-import { OrbitControls, useGLTF } from "@react-three/drei";
+import { useEffect, useRef, useState, useCallback } from "react";
+import { Canvas, useFrame } from "@react-three/fiber";
+import { OrbitControls, useFBX } from "@react-three/drei";
 import { Suspense } from "react";
+import * as THREE from "three";
 
-function Model() {
-  const { scene } = useGLTF("/model.glb");
-  return <primitive object={scene} scale={2.6} position={[0, -0.15, 0]} />;
+/* ══════════════════════════════════════════
+   CONSTANTS — morph target name candidates
+══════════════════════════════════════════ */
+const MOUTH_TARGETS = [
+  "Morpher_CC_Base_Body.Open", "mouthOpen", "jawOpen", "Mouth_Open", "JawOpen",
+  "A", "viseme_aa", "viseme_AA", "mouth_open",
+];
+
+/* ── Find first existing morph index from a name priority list ── */
+function findMorphIdx(dict: { [key: string]: number } | undefined, names: string[]) {
+  if (!dict) return -1;
+  for (const n of names) {
+    if (n in dict) return dict[n];
+  }
+  return -1;
+}
+
+interface ModelProps {
+  isSpeaking: boolean;
+}
+
+function Model({ isSpeaking }: ModelProps) {
+  const fbx = useFBX("/model.fbx");
+  const modelRef = useRef<THREE.Group>(null);
+  const morphMeshes = useRef<THREE.Mesh[]>([]);
+  const lipPhase = useRef(0);
+
+  // Initialize morph targets
+  useEffect(() => {
+    if (!fbx) return;
+    morphMeshes.current = [];
+    fbx.traverse((node) => {
+      if ((node as THREE.Mesh).isMesh) {
+        const mesh = node as THREE.Mesh;
+        if (mesh.morphTargetDictionary && mesh.morphTargetInfluences) {
+          morphMeshes.current.push(mesh);
+        }
+      }
+    });
+  }, [fbx]);
+
+  /* Helper — smooth-write morphs */
+  const setMorphs = useCallback((targetList: string[], value: number, speed: number) => {
+    morphMeshes.current.forEach((mesh) => {
+      const idx = findMorphIdx(mesh.morphTargetDictionary, targetList);
+      if (idx < 0) return;
+      mesh.morphTargetInfluences![idx] = THREE.MathUtils.lerp(
+        mesh.morphTargetInfluences![idx],
+        value,
+        speed
+      );
+    });
+  }, []);
+
+  useFrame((state, delta) => {
+    const t = state.clock.elapsedTime;
+
+    // 1. Breathing: gentle scale/position bob
+    if (modelRef.current) {
+      modelRef.current.position.y = -1 + Math.sin(t * 0.8) * 0.05;
+    }
+
+    // 2. Head/Body sway
+    if (modelRef.current) {
+      modelRef.current.rotation.y = Math.sin(t * 0.4) * 0.05;
+    }
+
+    // 3. Lip Sync
+    if (isSpeaking) {
+      lipPhase.current += delta * 10;
+      const lip = Math.max(0,
+        Math.sin(lipPhase.current) * 0.5 +
+        Math.sin(lipPhase.current * 1.5) * 0.25 +
+        Math.sin(lipPhase.current * 0.7) * 0.15
+      ) * 0.8;
+      setMorphs(MOUTH_TARGETS, lip, 0.25);
+    } else {
+      setMorphs(MOUTH_TARGETS, 0, 0.1);
+    }
+  });
+
+  return <primitive ref={modelRef} object={fbx} scale={0.02} position={[0, -1.8, 0]} />;
 }
 
 function FallbackSpinner() {
@@ -28,7 +108,11 @@ function FallbackSpinner() {
   );
 }
 
-export default function MentorModel() {
+interface MentorModelProps {
+  isSpeaking?: boolean;
+}
+
+export default function MentorModel({ isSpeaking = false }: MentorModelProps) {
   const [webGLSupported, setWebGLSupported] = useState<boolean | null>(null);
 
   useEffect(() => {
@@ -65,7 +149,7 @@ export default function MentorModel() {
       <directionalLight position={[2, 2, 2]} intensity={1.5} />
 
       <Suspense fallback={null}>
-        <Model />
+        <Model isSpeaking={isSpeaking} />
       </Suspense>
 
       <OrbitControls

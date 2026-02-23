@@ -634,6 +634,8 @@ export default function MockInterviewPage() {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
   const processorRef = useRef<ScriptProcessorNode | null>(null);
+  // Sync ref — avoids stale closure inside onaudioprocess
+  const isRecordingRef = useRef(false);
   
   const activeAI = AI_PARTICIPANTS.find((p) => p.id === activeAiId) ?? AI_PARTICIPANTS[0];
   const inactiveAIs = AI_PARTICIPANTS.filter((p) => p.id !== activeAiId);
@@ -695,14 +697,19 @@ export default function MockInterviewPage() {
   };
 
   const cleanupResources = () => {
+    // Stop recording stream if active
+    isRecordingRef.current = false;
+    setIsRecording(false);
+
     // Stop all tracks
     streamRef.current?.getTracks().forEach((track) => track.stop());
     streamRef.current = null;
-    
+
     // Close audio context
     if (audioContextRef.current?.state !== "closed") {
       audioContextRef.current?.close();
     }
+    processorRef.current = null;
     
     // Disconnect socket
     socketRef.current?.disconnect();
@@ -741,7 +748,7 @@ export default function MockInterviewPage() {
       const processor = audioContextRef.current.createScriptProcessor(4096, 1, 1);
       
       processor.addEventListener('audioprocess', (event) => {
-        if (!isRecording || !socketRef.current?.connected) return;
+        if (!isRecordingRef.current || !socketRef.current?.connected) return;
         
         const inputData = event.inputBuffer.getChannelData(0);
         
@@ -780,11 +787,14 @@ export default function MockInterviewPage() {
       if (!success) return;
     }
 
-    setIsRecording(true);
     setCurrentTranscription("");
     setFinalTranscription("");
-    
-    // Start audio streaming
+
+    // Set ref FIRST (sync) so onaudioprocess sees it immediately
+    isRecordingRef.current = true;
+    setIsRecording(true);
+
+    // Emit AFTER ref is set
     socketRef.current.emit('interviewStartStream', {
       encoding: 'LINEAR16',
       sampleRateHertz: 16000,
@@ -793,11 +803,11 @@ export default function MockInterviewPage() {
   };
 
   const stopRecording = () => {
-    if (!socketRef.current?.connected) return;
-    
+    // Set ref immediately so onaudioprocess stops sending
+    isRecordingRef.current = false;
     setIsRecording(false);
-    
-    // Stop audio streaming
+
+    if (!socketRef.current?.connected) return;
     socketRef.current.emit('interviewStopStream');
   };
 
@@ -806,18 +816,22 @@ export default function MockInterviewPage() {
   ══════════════════════════════════════════ */
   const toggleMicrophone = async () => {
     if (!streamRef.current) return;
-    
+
     if (isMicOn) {
+      // If actively recording a session answer, stop the stream first
+      if (isRecordingRef.current) stopRecording();
+
       streamRef.current.getAudioTracks().forEach((track) => {
         track.stop();
         streamRef.current?.removeTrack(track);
       });
       setIsMicOn(false);
-      
+
       // Clean up audio processing
       if (audioContextRef.current && audioContextRef.current.state !== "closed") {
         await audioContextRef.current.close();
         audioContextRef.current = null;
+        processorRef.current = null;
       }
     } else {
       try {
@@ -825,6 +839,10 @@ export default function MockInterviewPage() {
         if (success) {
           setIsMicOn(true);
           setDeviceError("");
+          // If interview is live, auto-start the stream so the user can speak immediately
+          if (sessionStarted && socketRef.current?.connected) {
+            await startRecording();
+          }
         }
       } catch (error) {
         setDeviceError("Microphone access denied");
@@ -1402,15 +1420,37 @@ export default function MockInterviewPage() {
               {isStarting ? "Starting…" : sessionStarted ? "In Session" : "Start Interview"}
             </button>
 
-            {/* Mic */}
+            {/* Mic / Record toggle */}
             <button
-              onClick={toggleMicrophone}
+              onClick={() => {
+                if (sessionStarted) {
+                  // During session: toggle the live recording stream
+                  if (isRecording) {
+                    stopRecording();
+                  } else {
+                    if (isMicOn) {
+                      startRecording();
+                    } else {
+                      toggleMicrophone(); // will enable mic + auto-call startRecording
+                    }
+                  }
+                } else {
+                  toggleMicrophone();
+                }
+              }}
               disabled={!hasStream}
-              className={`w-10 h-10 rounded-full grid place-items-center transition ${isMicOn ? "bg-slate-700 text-white" : "bg-red-500 text-white"
-                } disabled:opacity-40`}
-              aria-label={isMicOn ? "Mute" : "Unmute"}
+              className={`w-10 h-10 rounded-full grid place-items-center transition disabled:opacity-40 ${
+                isRecording
+                  ? "bg-green-500 text-white"
+                  : isMicOn
+                  ? "bg-slate-700 text-white"
+                  : "bg-red-500 text-white"
+              }`}
+              style={isRecording ? { boxShadow: "0 0 10px #22c55e80", animation: "micPulse 1s ease-in-out infinite" } : {}}
+              aria-label={isRecording ? "Stop speaking" : isMicOn ? "Mute" : "Unmute"}
+              title={isRecording ? "Recording — click to stop" : isMicOn ? "Mic on — click to mute" : "Mic off — click to enable"}
             >
-              {isMicOn ? <Mic size={16} /> : <MicOff size={16} />}
+              {isRecording ? <Square size={14} fill="white" /> : isMicOn ? <Mic size={16} /> : <MicOff size={16} />}
             </button>
 
             {/* Camera */}
