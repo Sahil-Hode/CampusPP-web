@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useCallback, useEffect, useState } from "react";
+import { useParams } from "next/navigation";
 import { apiRequest } from "@/lib/api";
 import {
     ArrowLeft,
@@ -16,31 +16,65 @@ import { motion } from "framer-motion";
 import Link from "next/link";
 import confetti from "canvas-confetti";
 
+type LearningPathStep = {
+    _id: string;
+    title: string;
+    desc?: string;
+    status: string;
+    courseIndex: number;
+    stepIndex: number;
+    moduleTitle?: string;
+};
+
+type LearningPathCourse = {
+    _id?: string;
+    title?: string;
+    status?: string;
+    steps?: LearningPathStepRaw[];
+};
+
+type LearningPathStepRaw = {
+    _id?: string;
+    title?: string;
+    name?: string;
+    desc?: string;
+    description?: string;
+    quizStatus?: string;
+    status?: string;
+};
+
+type LearningPathApiData = {
+    _id?: string;
+    topic: string;
+    courses?: LearningPathCourse[];
+    path?: LearningPathStepRaw[];
+};
+
+type ApiResponse<T> = {
+    data?: T;
+} & T;
+
 export default function LearningPathDetail() {
     const params = useParams();
     const id = params?.id as string;
 
-    const [path, setPath] = useState<any | null>(null);
+    const [path, setPath] = useState<{ _id?: string; topic: string; courses: LearningPathStep[] } | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [updating, setUpdating] = useState<string | null>(null);
 
-    useEffect(() => {
-        if (id) fetchPathDetail();
-    }, [id]);
-
-    async function fetchPathDetail() {
+    const fetchPathDetail = useCallback(async () => {
         try {
             setLoading(true);
-            const res = await apiRequest(`/learning/${id}`, { method: "GET" });
+            const res = (await apiRequest(`/learning/${id}`, { method: "GET" })) as ApiResponse<LearningPathApiData>;
             const data = res.data || res;
 
-            const rawCourses = data.courses || data.path || [];
-            const hasNestedSteps = rawCourses.length > 0 && Array.isArray(rawCourses[0]?.steps);
+            const rawCourses = (data.courses || data.path || []) as LearningPathCourse[] | LearningPathStepRaw[];
+            const hasNestedSteps = rawCourses.length > 0 && Array.isArray((rawCourses[0] as LearningPathCourse)?.steps);
 
-            const normalizedSteps = hasNestedSteps
-                ? rawCourses.flatMap((course: any, cIdx: number) =>
-                    (course.steps || []).map((step: any, sIdx: number) => ({
+            const normalizedSteps: LearningPathStep[] = hasNestedSteps
+                ? (rawCourses as LearningPathCourse[]).flatMap((course, cIdx: number) =>
+                    (course.steps || []).map((step, sIdx: number) => ({
                         _id: step._id || `${course._id || `course-${cIdx}`}-step-${sIdx}`,
                         title: step.title || step.name || "Untitled Step",
                         desc: step.desc || step.description,
@@ -50,7 +84,7 @@ export default function LearningPathDetail() {
                         moduleTitle: course.title || `Module ${cIdx + 1}`
                     }))
                 )
-                : rawCourses.map((s: any, i: number) => ({
+                : (rawCourses as LearningPathStepRaw[]).map((s, i: number) => ({
                     _id: s._id || `step-${i}`,
                     title: s.title || s.name || "Untitled Step",
                     desc: s.desc || s.description,
@@ -60,22 +94,32 @@ export default function LearningPathDetail() {
                     moduleTitle: "Module 1"
                 }));
 
-            setPath({ ...data, courses: normalizedSteps });
-        } catch (err) {
+            setPath({
+                _id: data._id,
+                topic: data.topic,
+                courses: normalizedSteps
+            });
+            setError(null);
+        } catch {
             setError("Could not load the learning path.");
         } finally {
             setLoading(false);
         }
-    }
+    }, [id]);
+
+    useEffect(() => {
+        if (id) fetchPathDetail();
+    }, [id, fetchPathDetail]);
 
     async function updateProgress(index: number, currentStatus: string) {
         if (!path) return;
         const step = path.courses[index];
+        if (!step) return;
         const newStatus = currentStatus === "completed" ? "pending" : "completed";
         setUpdating(step._id);
 
         try {
-            let completedSteps = newStatus === "completed" ? index + 1 : index;
+            const completedSteps = newStatus === "completed" ? index + 1 : index;
             await apiRequest(`/learning/${id}/progress`, {
                 method: "PUT",
                 body: JSON.stringify({ completedSteps })
@@ -94,9 +138,11 @@ export default function LearningPathDetail() {
     }
 
     if (loading) return <div className="min-h-screen flex items-center justify-center bg-black"><Loader2 className="animate-spin text-[#F6AD55] w-10 h-10" /></div>;
+    if (error) return <div className="min-h-screen flex items-center justify-center bg-black text-red-400 font-semibold">{error}</div>;
+    if (!path) return <div className="min-h-screen flex items-center justify-center bg-black text-zinc-400 font-semibold">No learning path found.</div>;
 
-    const steps = path?.courses || [];
-    const completedCount = steps.filter((s: any) => s.status === "completed" || s.status === "passed").length;
+    const steps: LearningPathStep[] = path.courses;
+    const completedCount = steps.filter((s) => s.status === "completed" || s.status === "passed").length;
     const progressPercent = Math.round((completedCount / steps.length) * 100);
 
     return (
@@ -132,10 +178,10 @@ export default function LearningPathDetail() {
             {/* Linear Timeline (Non-ZigZag) */}
             <div className="relative">
                 {/* Single Left-Aligned Rail */}
-                <div className="absolute left-[20px] top-0 bottom-0 w-1 bg-zinc-900 rounded-full" />
+                <div className="absolute left-5 top-0 bottom-0 w-1 bg-zinc-900 rounded-full" />
 
                 <div className="space-y-10">
-                    {steps.map((step: any, index: number) => {
+                    {steps.map((step, index: number) => {
                         const isCompleted = step.status === "completed" || step.status === "passed";
                         const prevCompleted = index === 0
                             ? true
@@ -152,16 +198,16 @@ export default function LearningPathDetail() {
                                 className="relative flex gap-10"
                             >
                                 {/* Milestone Dot */}
-                                <div className={`relative z-10 w-10 h-10 rounded-full border-4 flex-shrink-0 flex items-center justify-center bg-black transition-all duration-500
+                                <div className={`relative z-10 w-10 h-10 rounded-full border-4 shrink-0 flex items-center justify-center bg-black transition-all duration-500
                                     ${isCompleted ? 'border-[#F6AD55] shadow-[0_0_15px_rgba(246,173,85,0.3)]' : isLocked ? 'border-zinc-800' : 'border-[#F6AD55] animate-pulse'}
                                 `}>
                                     <span className={`text-[10px] font-black ${isCompleted ? 'text-[#F6AD55]' : 'text-zinc-600'}`}>{index + 1}</span>
                                 </div>
 
                                 {/* Step Card - Always Aligned to Right */}
-                                <div className={`flex-grow p-1 rounded-[2.5rem] transition-all
-                                    ${isLocked ? 'opacity-50 grayscale pointer-events-none' : 'hover:bg-gradient-to-br hover:from-[#F6AD55]/20 hover:to-transparent'}
-                                    ${isInCooldown ? 'bg-gradient-to-br from-red-500/20 via-transparent to-transparent' : ''}
+                                <div className={`grow p-1 rounded-[2.5rem] transition-all
+                                    ${isLocked ? 'opacity-50 grayscale pointer-events-none' : 'hover:bg-linear-to-br hover:from-[#F6AD55]/20 hover:to-transparent'}
+                                    ${isInCooldown ? 'bg-linear-to-br from-red-500/20 via-transparent to-transparent' : ''}
                                 `}>
                                     <div className={`bg-zinc-900 border p-8 rounded-[2.4rem] h-full flex flex-col md:flex-row justify-between gap-8
                                         ${isInCooldown ? 'border-red-500/40 shadow-[0_0_30px_rgba(239,68,68,0.15)]' : 'border-zinc-800'}
@@ -183,7 +229,7 @@ export default function LearningPathDetail() {
                                             <h3 className="text-2xl font-black text-white tracking-tight">{step.title}</h3>
                                             <p className="text-zinc-500 font-medium leading-relaxed">{step.desc || "Master the core concepts of this module through interactive tasks and a final quiz evaluation."}</p>
                                             {isInCooldown && (
-                                                <div className="mt-2 inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-red-500/10 border border-red-500/30 text-sm font-semibold text-red-300">
+                                                <div className="mt-2 inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-red-500/10 border border-red-500/30 text-sm font-semibold text-red-500">
                                                     <AlertTriangle size={16} />
                                                     Quiz locked due to cooldown. Try again after 24 hours.
                                                 </div>
@@ -194,7 +240,7 @@ export default function LearningPathDetail() {
                                                     <div className="pt-4 flex items-center gap-4">
                                                         <Link
                                                             href={`/dashboard/ai-quiz?learningPathId=${id}&courseIndex=${step.courseIndex}&stepIndex=${step.stepIndex}`}
-                                                            className="flex-grow md:flex-grow-0 px-8 py-3 bg-[#F6AD55] hover:bg-[#e59b3d] text-black font-black text-xs uppercase tracking-[0.2em] rounded-xl flex items-center justify-center gap-3 transition-transform active:scale-95 shadow-lg shadow-orange-500/10"
+                                                            className="grow md:grow-0 px-8 py-3 bg-[#F6AD55] hover:bg-[#e59b3d] text-black font-black text-xs uppercase tracking-[0.2em] rounded-xl flex items-center justify-center gap-3 transition-transform active:scale-95 shadow-lg shadow-orange-500/10"
                                                         >
                                                             <PlayCircle size={18} strokeWidth={3} />
                                                             Start Task / Quiz
