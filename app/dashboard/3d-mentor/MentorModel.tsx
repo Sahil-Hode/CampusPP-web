@@ -1,52 +1,44 @@
 "use client";
 
 import { useEffect, useRef, useState, useCallback } from "react";
-import { Canvas, useFrame } from "@react-three/fiber";
-import { Html, OrbitControls, useFBX } from "@react-three/drei";
+import { Canvas, useFrame, useThree } from "@react-three/fiber";
+import { Html, OrbitControls, useGLTF } from "@react-three/drei";
 import { Suspense } from "react";
 import * as THREE from "three";
 
 /* ══════════════════════════════════════════════════════════════
-   VISEME MORPH TARGET GROUPS
-   Priority-ordered name candidates per viseme shape.
-   Add your model's exact morph names here if different.
+   MORPH TARGET NAME CANDIDATES
 ══════════════════════════════════════════════════════════════ */
-const VISEME_MORPHS: Record<number, string[]> = {
-  // 0 = closed / silence
-  0: ["mouthClose", "Mouth_Close", "viseme_sil", "Morpher_CC_Base_Body.Close"],
-  // 1 = slightly open (default speech)
-  1: ["mouthOpen", "Mouth_Open", "jawOpen", "JawOpen", "viseme_PP",
-      "Morpher_CC_Base_Body.Open", "A", "viseme_aa", "viseme_AA", "mouth_open"],
-  // 2 = mid vowel (e, i)
-  2: ["viseme_aa", "viseme_AA", "mouthOpen", "Mouth_Open", "jawOpen",
-      "Morpher_CC_Base_Body.Open", "A"],
-  // 3 = wide open (a)
-  3: ["viseme_aa", "viseme_AA", "jawOpen", "JawOpen",
-      "Morpher_CC_Base_Body.Open", "A", "mouthOpen"],
-  // 4 = bilabial press (p, b, m)
-  4: ["viseme_PP", "mouthClose", "Mouth_Close", "Morpher_CC_Base_Body.Close"],
-  // 5 = rounded (o, u)
-  5: ["viseme_O", "mouthFunnel", "Mouth_O", "O"],
-};
+const MOUTH_OPEN_NAMES = [
+  "viseme_aa", "viseme_AA", "viseme_O", "viseme_U", "viseme_E", "viseme_I",
+  "Morpher_CC_Base_Body.Open", "Morpher_CC_Base_Teeth.Open", "CC_Base_Body.Open",
+  "mouthOpen", "Mouth_Open", "jawOpen", "JawOpen", "jaw_open", "Jaw_Open",
+  "A", "E", "O", "U", "mouth_open", "open_mouth", "MouthOpen",
+];
+
+const MOUTH_CLOSE_NAMES = [
+  "mouthClose", "Mouth_Close", "viseme_sil", "viseme_PP",
+  "Morpher_CC_Base_Body.Close", "CC_Base_Body.Close", "mouth_close", "MouthClose",
+];
+
+const JAW_BONE_NAMES = [
+  "jaw", "Jaw", "JAW", "mixamorigJaw", "CC_Base_JawRoot",
+  "Head_Jaw", "jaw_master", "lower_jaw", "mandible",
+];
 
 /* ══════════════════════════════════════════════════════════════
-   SHARED LIP-SYNC REF TYPE
-   Written every frame by the AudioContext analyser in the page,
-   read every frame by Model's useFrame.
+   EXPORTED TYPES
 ══════════════════════════════════════════════════════════════ */
 export interface LipSyncAnalysis {
-  mouthOpen: number;   // 0–1  normalised energy
-  visemeId:  number;   // 0–5  current mouth shape
+  mouthOpen: number;
+  visemeId:  number;
 }
 export type LipSyncRef = React.MutableRefObject<LipSyncAnalysis>;
 
 /* ══════════════════════════════════════════════════════════════
    HELPERS
 ══════════════════════════════════════════════════════════════ */
-function findMorphIdx(
-  dict: Record<string, number> | undefined,
-  names: string[]
-): number {
+function findMorphIdx(dict: Record<string, number> | undefined, names: string[]): number {
   if (!dict) return -1;
   for (const n of names) if (n in dict) return dict[n];
   return -1;
@@ -55,23 +47,14 @@ function findMorphIdx(
 function bandAvg(data: Uint8Array, start: number, end: number): number {
   let sum = 0;
   for (let i = start; i < end; i++) sum += data[i];
-  return sum / (end - start);
+  return sum / Math.max(1, end - start);
 }
 
 /* ══════════════════════════════════════════════════════════════
-   AUDIO → LIP-SYNC ANALYSER HOOK
-   Connects an AudioContext AnalyserNode to the playing <audio>
-   element and writes mouthOpen + visemeId into lipSyncRef at
-   ~60 fps via requestAnimationFrame.
-
-   Usage:
-     const lipSyncRef = useRef<LipSyncAnalysis>({ mouthOpen:0, visemeId:0 });
-     const { connectAudio, disconnectAudio } = useAudioLipSync(lipSyncRef);
-     // call connectAudio(audioElement) when ttsAudio starts playing
-     // call disconnectAudio() when it ends
+   AUDIO LIP-SYNC HOOK
 ══════════════════════════════════════════════════════════════ */
 export function useAudioLipSync(lipSyncRef: LipSyncRef) {
-  const audioCtxRef  = useRef<AudioContext | null>(null);
+  const ctxRef       = useRef<AudioContext | null>(null);
   const analyserRef  = useRef<AnalyserNode | null>(null);
   const dataRef      = useRef<Uint8Array | null>(null);
   const rafRef       = useRef<number>(0);
@@ -80,137 +63,218 @@ export function useAudioLipSync(lipSyncRef: LipSyncRef) {
   const disconnectAudio = useCallback(() => {
     cancelAnimationFrame(rafRef.current);
     lipSyncRef.current = { mouthOpen: 0, visemeId: 0 };
-
-    if (audioCtxRef.current && audioCtxRef.current.state !== "closed") {
-      audioCtxRef.current.close().catch(() => {});
-    }
-    audioCtxRef.current  = null;
-    analyserRef.current  = null;
-    dataRef.current      = null;
-    connectedRef.current = null;
+    if (ctxRef.current?.state !== "closed") ctxRef.current?.close().catch(() => {});
+    ctxRef.current = analyserRef.current = dataRef.current = connectedRef.current = null;
   }, [lipSyncRef]);
 
   const connectAudio = useCallback((el: HTMLAudioElement) => {
-    // Don't re-connect the same element
     if (connectedRef.current === el) return;
     disconnectAudio();
-
     try {
-      const ctx = new (
-        window.AudioContext ||
-        (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext
-      )();
-
+      const AudioCtx = window.AudioContext ||
+        (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+      const ctx      = new AudioCtx();
       const analyser = ctx.createAnalyser();
-      analyser.fftSize = 256;                 // 128 bins, ~375 Hz/bin @ 48 kHz
-      analyser.smoothingTimeConstant = 0.55;  // mild smoothing
+      analyser.fftSize = 512;
+      analyser.smoothingTimeConstant = 0.6;
 
       const source = ctx.createMediaElementSource(el);
       source.connect(analyser);
       analyser.connect(ctx.destination);
 
       const data = new Uint8Array(analyser.frequencyBinCount);
-
-      audioCtxRef.current  = ctx;
-      analyserRef.current  = analyser;
-      dataRef.current      = data;
+      ctxRef.current = ctx;
+      analyserRef.current = analyser;
+      dataRef.current = data;
       connectedRef.current = el;
 
       const tick = () => {
         rafRef.current = requestAnimationFrame(tick);
         if (!analyserRef.current || !dataRef.current) return;
-
         analyserRef.current.getByteFrequencyData(dataRef.current);
         const d = dataRef.current;
 
-        // Speech lives in 300–3400 Hz
-        // At 48 kHz with 128 bins: bin ≈ freq / 375
-        const low  = bandAvg(d, 1,  8);   // ~375–3000 Hz general energy
-        const mid  = bandAvg(d, 8,  20);  // ~3000–7500 Hz vowel formants
-        const high = bandAvg(d, 20, 40);  // ~7500–15000 Hz consonants
+        const fund = bandAvg(d,  1,  4);
+        const f1   = bandAvg(d,  4, 12);
+        const f2   = bandAvg(d, 12, 28);
+        const cons = bandAvg(d, 28, 70);
+        const total = fund * 0.2 + f1 * 0.5 + f2 * 0.25 + cons * 0.05;
+        const mouthOpen = Math.min(total / 80, 1);
 
-        const total     = low * 0.6 + mid * 0.3 + high * 0.1;
-        const mouthOpen = Math.min(total / 70, 1);   // normalise (speech ≈ 40–90)
-
-        // ── Classify viseme from band ratios ───────────────────────
         let visemeId = 0;
-        if (mouthOpen < 0.04) {
-          visemeId = 0;                                     // silence
-        } else if (high > mid * 1.5) {
-          visemeId = 4;                                     // consonant burst
-        } else if (mid > 55) {
-          visemeId = mouthOpen > 0.6 ? 3 : 2;             // wide vs mid vowel
-        } else if (low > mid * 1.2 && low > 25) {
-          visemeId = 5;                                     // rounded (o/u)
-        } else {
-          visemeId = 1;                                     // light open
-        }
+        if      (mouthOpen < 0.05)          visemeId = 0;
+        else if (cons > f1 * 1.8)           visemeId = 4;
+        else if (f1 > 70 && f2 < f1 * 0.8) visemeId = 5;
+        else if (f1 > 60)                   visemeId = mouthOpen > 0.6 ? 3 : 2;
+        else                                visemeId = 1;
 
         lipSyncRef.current = { mouthOpen, visemeId };
       };
 
-      if (ctx.state === "suspended") ctx.resume().then(tick);
-      else tick();
-    } catch (e) {
-      console.warn("[LipSync] AudioContext failed:", e);
-    }
+      if (ctx.state === "suspended") ctx.resume().then(tick); else tick();
+    } catch (e) { console.warn("[LipSync] AudioContext failed:", e); }
   }, [disconnectAudio, lipSyncRef]);
 
-  // Cleanup on unmount
   useEffect(() => () => disconnectAudio(), [disconnectAudio]);
-
   return { connectAudio, disconnectAudio };
 }
 
 /* ══════════════════════════════════════════════════════════════
-   3-D MODEL INNER COMPONENT
-   Reads lipSyncRef every frame — no React re-renders involved.
+   AUTO-FIT CAMERA — positions camera so model fills view nicely
+══════════════════════════════════════════════════════════════ */
+function AutoFitCamera({ target }: { target: THREE.Group | null }) {
+  const { camera } = useThree();
+  const fitted = useRef(false);
+
+  useEffect(() => {
+    if (!target || fitted.current) return;
+    fitted.current = true;
+
+    const box    = new THREE.Box3().setFromObject(target);
+    const size   = new THREE.Vector3();
+    const center = new THREE.Vector3();
+    box.getSize(size);
+    box.getCenter(center);
+
+    // Position camera to show upper body (head to waist)
+    const height    = size.y;
+    const camY      = center.y + height * 0.15;   // slightly above center
+    const camZ      = Math.max(size.x, size.z) * 2.2 + height * 0.6;
+
+    camera.position.set(0, camY, camZ);
+    (camera as THREE.PerspectiveCamera).fov = 38;
+    (camera as THREE.PerspectiveCamera).updateProjectionMatrix();
+  }, [target, camera]);
+
+  return null;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   3-D MODEL COMPONENT
 ══════════════════════════════════════════════════════════════ */
 interface ModelProps {
   isSpeaking: boolean;
   lipSyncRef: LipSyncRef;
+  onReady:    (group: THREE.Group) => void;
 }
 
-function Model({ isSpeaking, lipSyncRef }: ModelProps) {
-  const fbx         = useFBX("/model.fbx");
-  const modelRef    = useRef<THREE.Group>(null);
-  const morphMeshes = useRef<THREE.Mesh[]>([]);
-  const smoothOpen  = useRef(0);
-  const prevViseme  = useRef(0);
+function Model({ isSpeaking, lipSyncRef, onReady }: ModelProps) {
+  // Clone the scene so we don't mutate the cached GLTF
+  const { scene, animations } = useGLTF("/model.glb");
+  const clonedScene = useRef<THREE.Group | null>(null);
 
-  /* Collect morph-target meshes once on load */
+  const groupRef    = useRef<THREE.Group>(null);
+  const mixerRef    = useRef<THREE.AnimationMixer | null>(null);
+  const morphMeshes = useRef<THREE.Mesh[]>([]);
+  const jawBoneRef  = useRef<THREE.Bone | null>(null);
+  const hasMorphs   = useRef(false);
+  const smoothOpen  = useRef(0);
+  const jawRestQuat = useRef(new THREE.Quaternion());
+
   useEffect(() => {
-    if (!fbx) return;
+    if (!scene) return;
+
+    // Clone so we don't mutate the shared cached scene
+    const cloned = scene.clone(true);
+    clonedScene.current = cloned;
+
     morphMeshes.current = [];
-    fbx.traverse((node) => {
+    hasMorphs.current   = false;
+    jawBoneRef.current  = null;
+    const allMorphNames: string[] = [];
+
+    cloned.traverse((node) => {
       const mesh = node as THREE.Mesh;
       if (mesh.isMesh && mesh.morphTargetDictionary && mesh.morphTargetInfluences) {
+        // Re-clone morph influences array (clone() doesn't deep-copy these)
+        mesh.morphTargetInfluences = [...mesh.morphTargetInfluences];
         morphMeshes.current.push(mesh);
-        if (process.env.NODE_ENV === "development") {
-          console.log(`[LipSync] mesh "${mesh.name}" morphs:`,
-            Object.keys(mesh.morphTargetDictionary));
+        const names = Object.keys(mesh.morphTargetDictionary);
+        allMorphNames.push(...names);
+        if (findMorphIdx(mesh.morphTargetDictionary, MOUTH_OPEN_NAMES) >= 0) {
+          hasMorphs.current = true;
+        }
+      }
+
+      if ((node as THREE.Bone).isBone || node.type === "Bone") {
+        if (JAW_BONE_NAMES.some(n => node.name.toLowerCase().includes(n.toLowerCase()))) {
+          jawBoneRef.current = node as THREE.Bone;
+          jawRestQuat.current.copy(node.quaternion);
         }
       }
     });
-  }, [fbx]);
 
-  const applyViseme = useCallback(
-    (id: number, weight: number, speed: number) => {
-      const names = VISEME_MORPHS[id] ?? VISEME_MORPHS[1];
-      morphMeshes.current.forEach((mesh) => {
-        const idx = findMorphIdx(mesh.morphTargetDictionary, names);
-        if (idx < 0) return;
-        mesh.morphTargetInfluences![idx] = THREE.MathUtils.lerp(
-          mesh.morphTargetInfluences![idx], weight, speed
-        );
-      });
-    }, []
-  );
+    // ── Normalize: center + scale to 1.6 m tall ──────────────
+    const box    = new THREE.Box3().setFromObject(cloned);
+    const size   = new THREE.Vector3();
+    const center = new THREE.Vector3();
+    box.getSize(size);
+    box.getCenter(center);
 
-  const clearAll = useCallback((speed: number) => {
-    const allNames = Array.from(new Set(Object.values(VISEME_MORPHS).flat()));
+    const targetHeight = 1.6;
+    const scale = size.y > 0 ? targetHeight / size.y : 1;
+
+    // Apply scale + center via the wrapper group, not the scene itself
+    if (groupRef.current) {
+      groupRef.current.scale.setScalar(scale);
+      groupRef.current.position.set(
+        -center.x * scale,
+        -(box.min.y) * scale,   // sit on y=0 floor
+        -center.z * scale
+      );
+      onReady(groupRef.current);
+    }
+
+    // Dev log
+    console.group("[MentorModel] GLB loaded");
+    console.log("Morph targets:", [...new Set(allMorphNames)]);
+    console.log("Mouth morphs found:", hasMorphs.current);
+    console.log("Jaw bone:", jawBoneRef.current?.name ?? "none");
+    console.log("Model size:", size);
+    console.groupEnd();
+
+    // Animation mixer
+    if (animations && animations.length > 0) {
+      const mixer  = new THREE.AnimationMixer(cloned);
+      const action = mixer.clipAction(animations[0]);
+      action.play();
+      mixerRef.current = mixer;
+      console.log("[MentorModel] Animation:", animations[0].name);
+    } else {
+      mixerRef.current = null;
+      console.log("[MentorModel] No animations — procedural idle");
+    }
+
+    return () => {
+      mixerRef.current?.stopAllAction();
+      mixerRef.current = null;
+    };
+  }, [scene, animations, onReady]);
+
+  // Morph helpers
+  const applyMorphOpen = useCallback((weight: number, speed: number) => {
     morphMeshes.current.forEach((mesh) => {
-      allNames.forEach((name) => {
+      const idx = findMorphIdx(mesh.morphTargetDictionary, MOUTH_OPEN_NAMES);
+      if (idx < 0) return;
+      mesh.morphTargetInfluences![idx] = THREE.MathUtils.lerp(
+        mesh.morphTargetInfluences![idx], weight, speed
+      );
+    });
+  }, []);
+
+  const applyJawBone = useCallback((weight: number, speed: number) => {
+    const jaw = jawBoneRef.current;
+    if (!jaw) return;
+    const euler = new THREE.Euler().setFromQuaternion(jawRestQuat.current);
+    const tq    = new THREE.Quaternion().setFromEuler(
+      new THREE.Euler(euler.x + weight * 0.26, euler.y, euler.z)
+    );
+    jaw.quaternion.slerp(tq, speed);
+  }, []);
+
+  const closeMorphs = useCallback((speed: number) => {
+    morphMeshes.current.forEach((mesh) => {
+      [...MOUTH_OPEN_NAMES, ...MOUTH_CLOSE_NAMES].forEach((name) => {
         const idx = findMorphIdx(mesh.morphTargetDictionary, [name]);
         if (idx < 0) return;
         mesh.morphTargetInfluences![idx] = THREE.MathUtils.lerp(
@@ -220,35 +284,42 @@ function Model({ isSpeaking, lipSyncRef }: ModelProps) {
     });
   }, []);
 
-  useFrame((state) => {
+  useFrame((state, delta) => {
     const t = state.clock.elapsedTime;
 
-    /* Idle body animation */
-    if (modelRef.current) {
-      modelRef.current.position.y = -1 + Math.sin(t * 0.8) * 0.05;
-      modelRef.current.rotation.y = Math.sin(t * 0.4) * 0.05;
+    // Advance animation
+    if (mixerRef.current) {
+      mixerRef.current.update(delta);
+    } else if (groupRef.current) {
+      // Procedural idle breathing
+      const baseY = groupRef.current.userData.baseY ?? groupRef.current.position.y;
+      groupRef.current.userData.baseY = baseY;
+      groupRef.current.position.y = baseY + Math.sin(t * 0.7) * 0.01;
+      groupRef.current.rotation.y = Math.sin(t * 0.3) * 0.03;
     }
 
-    /* Lip sync — driven by live audio analysis */
+    // Lip sync
     if (isSpeaking) {
-      const { mouthOpen, visemeId } = lipSyncRef.current;
-
-      smoothOpen.current = THREE.MathUtils.lerp(smoothOpen.current, mouthOpen, 0.28);
-
-      if (visemeId !== prevViseme.current) {
-        applyViseme(prevViseme.current, 0, 0.4);
-        prevViseme.current = visemeId;
-      }
-
-      applyViseme(visemeId, smoothOpen.current, 0.3);
+      const { mouthOpen } = lipSyncRef.current;
+      smoothOpen.current = THREE.MathUtils.lerp(smoothOpen.current, mouthOpen, 0.3);
+      if (hasMorphs.current) applyMorphOpen(smoothOpen.current, 0.3);
+      else                   applyJawBone(smoothOpen.current, 0.25);
     } else {
-      smoothOpen.current = THREE.MathUtils.lerp(smoothOpen.current, 0, 0.12);
-      clearAll(0.12);
+      smoothOpen.current = THREE.MathUtils.lerp(smoothOpen.current, 0, 0.15);
+      if (hasMorphs.current) closeMorphs(0.15);
+      else {
+        const jaw = jawBoneRef.current;
+        if (jaw) jaw.quaternion.slerp(jawRestQuat.current, 0.15);
+      }
     }
   });
 
+  if (!clonedScene.current) return null;
+
   return (
-    <primitive ref={modelRef} object={fbx} scale={0.02} position={[0, -1.8, 0]} />
+    <group ref={groupRef}>
+      <primitive object={clonedScene.current} />
+    </group>
   );
 }
 
@@ -271,11 +342,25 @@ function FallbackSpinner() {
 }
 
 /* ══════════════════════════════════════════════════════════════
-   PUBLIC COMPONENT
+   SCENE WRAPPER — holds ready group ref for AutoFitCamera
+══════════════════════════════════════════════════════════════ */
+function Scene({ isSpeaking, lipSyncRef }: { isSpeaking: boolean; lipSyncRef: LipSyncRef }) {
+  const [readyGroup, setReadyGroup] = useState<THREE.Group | null>(null);
 
-   Props:
-     isSpeaking  — true while TTS audio is playing
-     lipSyncRef  — ref written by useAudioLipSync hook in the page
+  return (
+    <>
+      <AutoFitCamera target={readyGroup} />
+      <Model
+        isSpeaking={isSpeaking}
+        lipSyncRef={lipSyncRef}
+        onReady={setReadyGroup}
+      />
+    </>
+  );
+}
+
+/* ══════════════════════════════════════════════════════════════
+   PUBLIC COMPONENT
 ══════════════════════════════════════════════════════════════ */
 interface MentorModelProps {
   isSpeaking?: boolean;
@@ -302,20 +387,29 @@ export default function MentorModel({ isSpeaking = false, lipSyncRef }: MentorMo
 
   return (
     <Canvas
-      camera={{ position: [0, 1.45, 1.8], fov: 35 }}
+      camera={{ position: [0, 1.2, 3.5], fov: 38 }}
       style={{ width: "100%", height: "100%" }}
       gl={{ antialias: true }}
     >
-      <ambientLight intensity={1.2} />
-      <directionalLight position={[2, 2, 2]} intensity={1.5} />
+      <ambientLight intensity={1.4} />
+      <directionalLight position={[2, 4, 3]} intensity={1.6} />
+      <directionalLight position={[-2, 2, -1]} intensity={0.4} />
+
       <Suspense fallback={<Html center><FallbackSpinner /></Html>}>
-        <Model isSpeaking={isSpeaking} lipSyncRef={lipSyncRef} />
+        <Scene isSpeaking={isSpeaking} lipSyncRef={lipSyncRef} />
       </Suspense>
+
       <OrbitControls
-        enableZoom enablePan={false}
-        minDistance={1.2} maxDistance={2.4}
-        target={[0, 1.45, 0]}
+        enableZoom={false}
+        enablePan={false}
+        minDistance={1.8}
+        maxDistance={1.8}
+        target={[0, 0.99, 0]}
+        minPolarAngle={Math.PI * 0.1}
+        maxPolarAngle={Math.PI * 0.75}
       />
     </Canvas>
   );
 }
+
+useGLTF.preload("/model.glb");
