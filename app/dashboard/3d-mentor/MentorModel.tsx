@@ -113,6 +113,9 @@ interface MentorModelProps {
 }
 
 export default function MentorModel({ isSpeaking = false }: MentorModelProps) {
+  // Temporary: no 3D model/rendering
+  return <div className="w-full h-full" />;
+
   const [webGLSupported, setWebGLSupported] = useState<boolean | null>(null);
 
   useEffect(() => {

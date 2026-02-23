@@ -620,6 +620,7 @@ export default function MockInterviewPage() {
   const [isUploading, setIsUploading] = useState(false);
   const [interviewError, setInterviewError] = useState<string | null>(null);
   const [processingMessage, setProcessingMessage] = useState<string | null>(null);
+  const transientMsgTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   
   // Final Results
   const [feedback, setFeedback] = useState<InterviewFeedback | null>(null);
@@ -697,6 +698,10 @@ export default function MockInterviewPage() {
   };
 
   const cleanupResources = () => {
+    if (transientMsgTimeoutRef.current) {
+      clearTimeout(transientMsgTimeoutRef.current);
+      transientMsgTimeoutRef.current = null;
+    }
     // Stop recording stream if active
     isRecordingRef.current = false;
     setIsRecording(false);
@@ -982,7 +987,19 @@ export default function MockInterviewPage() {
     // Error handling
     socket.on("interviewError", (payload: { message?: string }) => {
       console.error("Interview error:", payload);
-      setInterviewError(payload.message || "Interview error occurred");
+      const message = payload.message || "Interview error occurred";
+      if (message.toLowerCase().includes("no speech detected")) {
+        setInterviewError(null);
+        setProcessingMessage("No speech detected. Please try again.");
+        if (transientMsgTimeoutRef.current) {
+          clearTimeout(transientMsgTimeoutRef.current);
+        }
+        transientMsgTimeoutRef.current = setTimeout(() => {
+          setProcessingMessage(null);
+        }, 2500);
+        return;
+      }
+      setInterviewError(message);
     });
     
     socket.on("interviewTTSError", (payload: { message?: string }) => {
@@ -1216,7 +1233,6 @@ export default function MockInterviewPage() {
             <Suspense fallback={<Avatar3DSkeleton accentColor={activeAI.accentColor} />}>
               <InterviewAvatar3D
                 isSpeaking={speakingId === activeAI.id}
-                modelPath="/model.glb"
                 accentColor={activeAI.accentColor}
                 name={activeAI.name}
                 role={activeAI.role}

@@ -430,7 +430,7 @@ function NameBadge({ name, role, isSpeaking, accentColor }) {
 ══════════════════════════════════════════ */
 export default function InterviewAvatar3D({
     isSpeaking = false,
-    modelPath = "/model.glb",
+    modelPath = null,
     accentColor = "#63D2F3",
     name = "AI Interviewer",
     role = "Technical Panel",
@@ -452,6 +452,7 @@ export default function InterviewAvatar3D({
 
     /* Preload model on mount */
     useEffect(() => {
+        if (!modelPath) return;
         try { useGLTF.preload(modelPath); } catch { /* non-fatal */ }
     }, [modelPath]);
 
@@ -533,13 +534,15 @@ export default function InterviewAvatar3D({
                     color="#000000"
                 />
 
-                {/* ── Avatar model ── */}
-                <Suspense fallback={null}>
-                    <AvatarModel
-                        isSpeaking={isSpeaking}
-                        modelPath={modelPath}
-                    />
-                </Suspense>
+                {/* ── Avatar model (optional) ── */}
+                {modelPath ? (
+                    <Suspense fallback={null}>
+                        <AvatarModel
+                            isSpeaking={isSpeaking}
+                            modelPath={modelPath}
+                        />
+                    </Suspense>
+                ) : null}
 
                 {/* ── Camera push on speak ── */}
                 <CameraRig isSpeaking={isSpeaking} />
