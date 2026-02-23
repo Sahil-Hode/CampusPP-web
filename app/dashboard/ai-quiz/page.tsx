@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { apiRequest } from "@/lib/api";
@@ -64,6 +64,18 @@ type QuizSubmitResult = {
   }[];
 };
 
+type GenerateQuizResponse = {
+  quiz: QuizPayload;
+  message?: string;
+  alreadyPassed?: boolean;
+};
+
+type ApiError = {
+  statusCode?: number;
+  message?: string;
+  remainingMinutes?: number;
+};
+
 function formatMinutes(totalMinutes?: number) {
   if (!totalMinutes || totalMinutes <= 0) return "0 min";
   const hours = Math.floor(totalMinutes / 60);
@@ -99,16 +111,7 @@ export default function AIQuizPage() {
     return true;
   }, [learningPathId, courseIndex, stepIndex]);
 
-  useEffect(() => {
-    if (!hasValidParams) {
-      setLoading(false);
-      setError("Missing or invalid quiz parameters.");
-      return;
-    }
-    void generateQuiz();
-  }, [hasValidParams]);
-
-  async function generateQuiz() {
+  const generateQuiz = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
@@ -118,24 +121,34 @@ export default function AIQuizPage() {
       const res = (await apiRequest(
         `/quiz/generate/${learningPathId}/${courseIndex}/${stepIndex}`,
         { method: "POST" }
-      )) as any;
+      )) as GenerateQuizResponse;
 
-      setQuiz(res.quiz as QuizPayload);
+      setQuiz(res.quiz);
       setError(null);
       setMessage(res.message || null);
       setAlreadyPassed(Boolean(res.alreadyPassed));
       const initialAnswers = new Array(5).fill(-1);
       setAnswers(initialAnswers);
-    } catch (err: any) {
-      const status = err?.statusCode;
-      if (status === 403 && err?.remainingMinutes) {
-        setCooldownMinutes(Number(err.remainingMinutes));
+    } catch (err: unknown) {
+      const apiError = err as ApiError;
+      const status = apiError?.statusCode;
+      if (status === 403 && apiError?.remainingMinutes) {
+        setCooldownMinutes(Number(apiError.remainingMinutes));
       }
-      setError(err?.message || "Failed to load quiz.");
+      setError(apiError?.message || "Failed to load quiz.");
     } finally {
       setLoading(false);
     }
-  }
+  }, [learningPathId, courseIndex, stepIndex]);
+
+  useEffect(() => {
+    if (!hasValidParams) {
+      setLoading(false);
+      setError("Missing or invalid quiz parameters.");
+      return;
+    }
+    void generateQuiz();
+  }, [hasValidParams, generateQuiz]);
 
   function setAnswer(questionIndex: number, selectedIndex: number) {
     setAnswers((prev) => {
@@ -176,12 +189,13 @@ export default function AIQuizPage() {
       if (!res.passed && res.remainingMinutes) {
         setCooldownMinutes(Number(res.remainingMinutes));
       }
-    } catch (err: any) {
-      const status = err?.statusCode;
-      if (status === 403 && err?.remainingMinutes) {
-        setCooldownMinutes(Number(err.remainingMinutes));
+    } catch (err: unknown) {
+      const apiError = err as ApiError;
+      const status = apiError?.statusCode;
+      if (status === 403 && apiError?.remainingMinutes) {
+        setCooldownMinutes(Number(apiError.remainingMinutes));
       }
-      setError(err?.message || "Failed to submit quiz.");
+      setError(apiError?.message || "Failed to submit quiz.");
     } finally {
       setSubmitting(false);
     }
@@ -237,7 +251,7 @@ export default function AIQuizPage() {
         </div>
 
         {loading && (
-          <div className="min-h-[260px] flex items-center justify-center text-zinc-500">
+          <div className="min-h-65 flex items-center justify-center text-zinc-500">
             <Loader2 className="animate-spin text-[#F6AD55]" size={36} />
           </div>
         )}
@@ -264,7 +278,7 @@ export default function AIQuizPage() {
 
         {!loading && quiz && (
           <div className="space-y-6">
-            <div className="bg-zinc-950 border border-zinc-900 rounded-[2rem] p-6">
+            <div className="bg-zinc-950 border border-zinc-900 rounded-4xl p-6">
               <div className="flex flex-wrap items-center justify-between gap-4 text-xs uppercase tracking-widest font-bold text-zinc-500">
                 <span>Pass Threshold: {quiz.passThreshold}%</span>
                 <span>Attempts: {quiz.attemptCount}</span>
@@ -279,7 +293,7 @@ export default function AIQuizPage() {
                   initial={{ opacity: 0, y: 8 }}
                   whileInView={{ opacity: 1, y: 0 }}
                   viewport={{ once: true }}
-                  className="bg-zinc-900 border border-zinc-800 rounded-[2rem] p-6"
+                  className="bg-zinc-900 border border-zinc-800 rounded-4xl p-6"
                 >
                   <div className="flex items-center justify-between">
                     <h3 className="text-lg font-bold text-white">Q{idx + 1}. {q.question}</h3>
@@ -331,7 +345,7 @@ export default function AIQuizPage() {
             </div>
 
             {submitResult && (
-              <div className="bg-zinc-950 border border-zinc-900 rounded-[2rem] p-6 space-y-4">
+              <div className="bg-zinc-950 border border-zinc-900 rounded-4xl p-6 space-y-4">
                 <div className="flex items-center gap-3">
                   {submitResult.passed ? (
                     <CheckCircle2 className="text-emerald-400" size={22} />
