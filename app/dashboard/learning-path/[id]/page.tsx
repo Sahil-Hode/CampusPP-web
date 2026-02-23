@@ -34,14 +34,31 @@ export default function LearningPathDetail() {
             setLoading(true);
             const res = await apiRequest(`/learning/${id}`, { method: "GET" });
             const data = res.data || res;
-            
-            const rawSteps = data.courses || data.path || [];
-            const normalizedSteps = rawSteps.map((s: any, i: number) => ({
-                _id: s._id || `step-${i}`,
-                title: s.title || s.name || "Untitled Step",
-                desc: s.desc || s.description,
-                status: s.status || "pending"
-            }));
+
+            const rawCourses = data.courses || data.path || [];
+            const hasNestedSteps = rawCourses.length > 0 && Array.isArray(rawCourses[0]?.steps);
+
+            const normalizedSteps = hasNestedSteps
+                ? rawCourses.flatMap((course: any, cIdx: number) =>
+                    (course.steps || []).map((step: any, sIdx: number) => ({
+                        _id: step._id || `${course._id || `course-${cIdx}`}-step-${sIdx}`,
+                        title: step.title || step.name || "Untitled Step",
+                        desc: step.desc || step.description,
+                        status: step.quizStatus || step.status || "pending",
+                        courseIndex: cIdx,
+                        stepIndex: sIdx,
+                        moduleTitle: course.title || `Module ${cIdx + 1}`
+                    }))
+                )
+                : rawCourses.map((s: any, i: number) => ({
+                    _id: s._id || `step-${i}`,
+                    title: s.title || s.name || "Untitled Step",
+                    desc: s.desc || s.description,
+                    status: s.quizStatus || s.status || "pending",
+                    courseIndex: 0,
+                    stepIndex: i,
+                    moduleTitle: "Module 1"
+                }));
 
             setPath({ ...data, courses: normalizedSteps });
         } catch (err) {
@@ -79,7 +96,7 @@ export default function LearningPathDetail() {
     if (loading) return <div className="min-h-screen flex items-center justify-center bg-black"><Loader2 className="animate-spin text-[#F6AD55] w-10 h-10" /></div>;
 
     const steps = path?.courses || [];
-    const completedCount = steps.filter((s: any) => s.status === "completed").length;
+    const completedCount = steps.filter((s: any) => s.status === "completed" || s.status === "passed").length;
     const progressPercent = Math.round((completedCount / steps.length) * 100);
 
     return (
@@ -119,8 +136,12 @@ export default function LearningPathDetail() {
 
                 <div className="space-y-10">
                     {steps.map((step: any, index: number) => {
-                        const isCompleted = step.status === "completed";
-                        const isLocked = index > 0 && steps[index - 1].status !== "completed";
+                        const isCompleted = step.status === "completed" || step.status === "passed";
+                        const prevCompleted = index === 0
+                            ? true
+                            : (steps[index - 1].status === "completed" || steps[index - 1].status === "passed");
+                        const isInCooldown = step.status === "cooldown";
+                        const isLocked = !prevCompleted || step.status === "locked" || isInCooldown;
 
                         return (
                             <motion.div 
@@ -139,30 +160,47 @@ export default function LearningPathDetail() {
 
                                 {/* Step Card - Always Aligned to Right */}
                                 <div className={`flex-grow p-1 rounded-[2.5rem] transition-all
-                                    ${isLocked ? 'opacity-40 grayscale pointer-events-none' : 'hover:bg-gradient-to-br hover:from-[#F6AD55]/20 hover:to-transparent'}
+                                    ${isLocked ? 'opacity-50 grayscale pointer-events-none' : 'hover:bg-gradient-to-br hover:from-[#F6AD55]/20 hover:to-transparent'}
+                                    ${isInCooldown ? 'bg-gradient-to-br from-red-500/20 via-transparent to-transparent' : ''}
                                 `}>
-                                    <div className="bg-zinc-900 border border-zinc-800 p-8 rounded-[2.4rem] h-full flex flex-col md:flex-row justify-between gap-8">
+                                    <div className={`bg-zinc-900 border p-8 rounded-[2.4rem] h-full flex flex-col md:flex-row justify-between gap-8
+                                        ${isInCooldown ? 'border-red-500/40 shadow-[0_0_30px_rgba(239,68,68,0.15)]' : 'border-zinc-800'}
+                                    `}>
                                         
                                         <div className="max-w-xl space-y-4">
                                             <div className="flex items-center gap-3">
                                                 <span className={`text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full ${isCompleted ? 'bg-[#F6AD55]/10 text-[#F6AD55]' : 'bg-zinc-800 text-zinc-500'}`}>
-                                                    Module 0{index + 1}
+                                                    {step.moduleTitle || `Module 0${step.courseIndex + 1}`} · Step 0{step.stepIndex + 1}
                                                 </span>
+                                                {isInCooldown && (
+                                                    <span className="text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full bg-red-500/15 text-red-300 flex items-center gap-2 border border-red-500/30">
+                                                        <AlertTriangle size={12} /> Cooldown 24h
+                                                    </span>
+                                                )}
                                                 {isLocked && <Lock size={14} className="text-zinc-600" />}
                                             </div>
                                             
                                             <h3 className="text-2xl font-black text-white tracking-tight">{step.title}</h3>
                                             <p className="text-zinc-500 font-medium leading-relaxed">{step.desc || "Master the core concepts of this module through interactive tasks and a final quiz evaluation."}</p>
-                                            
-                                            {/* Action Button */}
-                                            {!isLocked && (
-                                                <div className="pt-4 flex items-center gap-4">
-                                                    <button className="flex-grow md:flex-grow-0 px-8 py-3 bg-[#F6AD55] hover:bg-[#e59b3d] text-black font-black text-xs uppercase tracking-[0.2em] rounded-xl flex items-center justify-center gap-3 transition-transform active:scale-95 shadow-lg shadow-orange-500/10">
-                                                        <PlayCircle size={18} strokeWidth={3} />
-                                                        Start Task / Quiz
-                                                    </button>
+                                            {isInCooldown && (
+                                                <div className="mt-2 inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-red-500/10 border border-red-500/30 text-sm font-semibold text-red-300">
+                                                    <AlertTriangle size={16} />
+                                                    Quiz locked due to cooldown. Try again after 24 hours.
                                                 </div>
                                             )}
+                                            
+                                            {/* Action Button */}
+                                                {!isLocked && (
+                                                    <div className="pt-4 flex items-center gap-4">
+                                                        <Link
+                                                            href={`/dashboard/ai-quiz?learningPathId=${id}&courseIndex=${step.courseIndex}&stepIndex=${step.stepIndex}`}
+                                                            className="flex-grow md:flex-grow-0 px-8 py-3 bg-[#F6AD55] hover:bg-[#e59b3d] text-black font-black text-xs uppercase tracking-[0.2em] rounded-xl flex items-center justify-center gap-3 transition-transform active:scale-95 shadow-lg shadow-orange-500/10"
+                                                        >
+                                                            <PlayCircle size={18} strokeWidth={3} />
+                                                            Start Task / Quiz
+                                                        </Link>
+                                                    </div>
+                                                )}
                                         </div>
 
                                         {/* Progress Toggle - Desktop Right Side */}

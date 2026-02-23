@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   Zap, Sparkles, TrendingUp, Activity, Shield, Clock,
-  Target, ArrowRight, GraduationCap, BarChart3, RefreshCw, AlertCircle, Lightbulb
+  Target, ArrowRight, GraduationCap, BarChart3, RefreshCw, AlertCircle, Lightbulb, CheckCircle2
 } from 'lucide-react';
 import { apiRequest } from '@/lib/api';
 import {
@@ -62,6 +62,59 @@ interface PerformanceDataState {
   trends: TrendItem[] | null; risk: RiskData; recommendations: RecommendationItem[] | null;
   intervention: InterventionItem[] | null;
 }
+interface QuizScoreSummary {
+  overallScore: number;
+  highestScore: number;
+  totalAttempts: number;
+  quizzesPassed: number;
+  totalQuizzes: number;
+  totalPossibleQuizzes: number;
+  completionRate: number;
+  completedPaths: number;
+  totalPaths: number;
+}
+interface QuizOverview {
+  summary: {
+    overallScore: number;
+    highestScore: number;
+    passRate: number;
+    completionRate: number;
+    avgAttemptsPerQuiz: number;
+    totalPaths: number;
+    completedPaths: number;
+    inProgressPaths: number;
+    notStartedPaths: number;
+    totalQuizzesAttempted: number;
+    totalQuizzesPassed: number;
+    totalQuizzesFailed: number;
+    totalAttempts: number;
+    totalPossibleQuizzes: number;
+  };
+  difficultyBreakdown: { easy: number; medium: number; hard: number };
+  recentActivity: {
+    quizId: string;
+    topic: string;
+    stepTitle: string;
+    moduleTitle: string;
+    bestScore: number;
+    status: string;
+    attemptCount: number;
+    lastActivityAt: string;
+  }[];
+  learningPaths: {
+    learningPathId: string;
+    topic: string;
+    pathStatus: string;
+    pathProgress: number;
+    quizStats: {
+      quizzesAttempted: number;
+      quizzesPassed: number;
+      averageBestScore: number;
+      passRate: number;
+      completionRate: number;
+    };
+  }[];
+}
 
 // --- API Helpers (Restored) ---
 const getDeepValue = (obj: any, keys: string[]) => {
@@ -106,6 +159,10 @@ export default function DashboardPage() {
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [quizScore, setQuizScore] = useState<QuizScoreSummary | null>(null);
+  const [quizOverview, setQuizOverview] = useState<QuizOverview | null>(null);
+  const [quizLoading, setQuizLoading] = useState({ score: true, overview: true });
+  const [quizError, setQuizError] = useState({ score: "", overview: "" });
 
   const fetchData = async (key: keyof PerformanceDataState, endpoint: string) => {
     try {
@@ -211,7 +268,47 @@ export default function DashboardPage() {
     fetchData('risk', `${BASE_URL}/risk`);
     fetchData('recommendations', `${BASE_URL}/recommendations`);
     fetchData('intervention', `${BASE_URL}/intervention`);
+    fetchQuizScore();
+    fetchQuizOverview();
   }, []);
+
+  const fetchQuizScore = async () => {
+    try {
+      setQuizLoading(prev => ({ ...prev, score: true }));
+      const res = await apiRequest("/quiz/score");
+      const payload = res?.data || res;
+      setQuizScore({
+        overallScore: toNum(payload.overallScore),
+        highestScore: toNum(payload.highestScore),
+        totalAttempts: toNum(payload.totalAttempts),
+        quizzesPassed: toNum(payload.quizzesPassed),
+        totalQuizzes: toNum(payload.totalQuizzes),
+        totalPossibleQuizzes: toNum(payload.totalPossibleQuizzes),
+        completionRate: toNum(payload.completionRate),
+        completedPaths: toNum(payload.completedPaths),
+        totalPaths: toNum(payload.totalPaths),
+      });
+      setQuizError(prev => ({ ...prev, score: "" }));
+    } catch (err: any) {
+      setQuizError(prev => ({ ...prev, score: err?.message || "Failed to load quiz score." }));
+    } finally {
+      setQuizLoading(prev => ({ ...prev, score: false }));
+    }
+  };
+
+  const fetchQuizOverview = async () => {
+    try {
+      setQuizLoading(prev => ({ ...prev, overview: true }));
+      const res = await apiRequest("/quiz/overview");
+      const payload = res?.data || res;
+      setQuizOverview(payload as QuizOverview);
+      setQuizError(prev => ({ ...prev, overview: "" }));
+    } catch (err: any) {
+      setQuizError(prev => ({ ...prev, overview: err?.message || "Failed to load quiz overview." }));
+    } finally {
+      setQuizLoading(prev => ({ ...prev, overview: false }));
+    }
+  };
 
   const getRiskColor = (level: string | undefined) => {
     switch (level?.toLowerCase()) {
@@ -290,6 +387,121 @@ export default function DashboardPage() {
             </Card>
           ))}
         </div>
+      </div>
+
+      {/* QUIZ GRID */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <Card className="lg:col-span-1 border-l-[12px] border-l-[#E96D7C]">
+          <div className="flex items-center justify-between mb-6">
+            <h3 className="font-black uppercase tracking-widest text-xs text-[#8799B5]">Quiz Score</h3>
+            {quizLoading.score ? (
+              <Skeleton className="w-16 h-6" />
+            ) : (
+              <span className={`px-4 py-1 rounded-lg ${BORDER} text-[10px] font-black uppercase bg-[#E96D7C]/15 text-[#E96D7C]`}>
+                Live
+              </span>
+            )}
+          </div>
+          {quizError.score && (
+            <div className="flex items-center gap-2 text-xs font-semibold text-[#E96D7C] mb-3">
+              <AlertCircle size={14} /> {quizError.score}
+            </div>
+          )}
+          <div className="text-7xl font-[1000] tracking-tighter leading-none mb-6">
+            {quizScore?.overallScore ?? 0}%
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className={`p-4 bg-[#E96D7C]/10 ${BORDER} rounded-2xl`}>
+              <p className="text-[10px] font-black uppercase text-[#8799B5]">Highest</p>
+              <p className="font-black text-lg">{quizScore?.highestScore ?? 0}%</p>
+            </div>
+            <div className={`p-4 bg-[#61C6EA]/10 ${BORDER} rounded-2xl`}>
+              <p className="text-[10px] font-black uppercase text-[#8799B5]">Completion</p>
+              <p className="font-black text-lg">{quizScore?.completionRate ?? 0}%</p>
+            </div>
+          </div>
+        </Card>
+
+        <div className="lg:col-span-2 grid grid-cols-1 sm:grid-cols-3 gap-4">
+          {[
+            { label: 'Attempts', value: quizScore?.totalAttempts ?? 0, icon: Activity, variant: 'mint' },
+            { label: 'Quizzes Passed', value: quizScore?.quizzesPassed ?? 0, icon: CheckCircle2, variant: 'purple' },
+            { label: 'Total Quizzes', value: quizScore?.totalPossibleQuizzes ?? 0, icon: Target, variant: 'orange' }
+          ].map((kpi, i) => (
+            <Card key={i} variant={kpi.variant} className="flex flex-col items-center justify-center text-center">
+              <div className={`p-4 bg-white dark:bg-zinc-900 ${BORDER} rounded-2xl mb-4`}>
+                <kpi.icon size={28} strokeWidth={3} className="text-[#0D1833] dark:text-slate-200" />
+              </div>
+              <div className="text-5xl font-[1000] mb-1">{kpi.value}</div>
+              <div className="text-[10px] font-black uppercase tracking-widest text-[#8799B5]">{kpi.label}</div>
+            </Card>
+          ))}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <Card className="lg:col-span-1">
+          <div className="flex items-center gap-3 mb-6 font-black uppercase italic">
+            <BarChart3 size={22} strokeWidth={3} /> Difficulty Split
+          </div>
+          {quizLoading.overview ? (
+            <div className="space-y-3">
+              <Skeleton className="h-4 w-2/3" />
+              <Skeleton className="h-4 w-1/2" />
+              <Skeleton className="h-4 w-3/4" />
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {[
+                { label: "Easy", value: quizOverview?.difficultyBreakdown?.easy ?? 0, color: "#61C6EA" },
+                { label: "Medium", value: quizOverview?.difficultyBreakdown?.medium ?? 0, color: "#B7A4EA" },
+                { label: "Hard", value: quizOverview?.difficultyBreakdown?.hard ?? 0, color: "#E96D7C" },
+              ].map((row, idx) => (
+                <div key={idx} className="flex items-center justify-between">
+                  <span className="text-xs font-black uppercase tracking-widest text-[#8799B5]">{row.label}</span>
+                  <span className="text-sm font-black" style={{ color: row.color }}>{row.value}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </Card>
+
+        <Card className="lg:col-span-2">
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-3 font-black uppercase italic">
+              <Zap size={22} strokeWidth={3} /> Recent Quiz Activity
+            </div>
+            <span className="text-[10px] font-black text-[#8799B5] uppercase tracking-widest">Last 5</span>
+          </div>
+          {quizLoading.overview ? (
+            <div className="space-y-4">
+              <Skeleton className="h-12 w-full" />
+              <Skeleton className="h-12 w-full" />
+              <Skeleton className="h-12 w-full" />
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {(quizOverview?.recentActivity || []).map((item) => (
+                <div key={item.quizId} className={`flex flex-col md:flex-row md:items-center justify-between p-4 ${BORDER} bg-white/70 dark:bg-zinc-900 rounded-2xl`}>
+                  <div>
+                    <p className="text-[10px] font-black uppercase text-[#8799B5]">{item.moduleTitle}</p>
+                    <p className="font-black text-lg">{item.stepTitle}</p>
+                    <p className="text-xs text-[#8799B5]">Topic: {item.topic}</p>
+                  </div>
+                  <div className="mt-3 md:mt-0 flex items-center gap-4">
+                    <span className={`px-3 py-1 rounded-lg text-[10px] font-black uppercase ${item.status === "passed" ? "bg-[#61C6EA]/15 text-[#61C6EA]" : "bg-[#E96D7C]/15 text-[#E96D7C]"}`}>
+                      {item.status}
+                    </span>
+                    <span className="text-sm font-black">{item.bestScore}%</span>
+                  </div>
+                </div>
+              ))}
+              {quizOverview?.recentActivity?.length === 0 && (
+                <div className="text-sm text-[#8799B5]">No recent quiz activity yet.</div>
+              )}
+            </div>
+          )}
+        </Card>
       </div>
 
       {/* CHARTS */}
