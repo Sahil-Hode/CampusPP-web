@@ -1,28 +1,24 @@
 "use client";
 
 /**
- * Mock Interview Room
+ * Mock Interview Room - Speech-to-Speech AI Interview
  * ──────────────────────────────────────────────────────────────
- * Layout:
- *   ┌────────────────────────────┬──────────────────┐
- *   │  3D AI Avatar (active)     │  Candidate cam   │
- *   │  InterviewAvatar3D         │  video / photo   │
- *   └────────────────────────────┴──────────────────┘
- *   ┌──────────┬──────────┬──────────────────────────┐
- *   │ AI tile  │ AI tile  │  Question display         │
- *   │ 2D badge │ 2D badge │                           │
- *   └──────────┴──────────┴──────────────────────────┘
- *   [Controls bar]
+ * Flow:
+ * 1. Check resume status (required for interview)
+ * 2. Interview preparation and readiness check
+ * 3. Real-time speech-to-speech communication
+ * 4. Live transcription and audio processing
+ * 5. AI feedback and scoring
  * ──────────────────────────────────────────────────────────────
  */
 
 import {
   lazy,
   Suspense,
-  useCallback,
   useEffect,
   useRef,
   useState,
+  useCallback,
 } from "react";
 import {
   Camera,
@@ -36,10 +32,19 @@ import {
   ChevronRight,
   Volume2,
   VolumeX,
+  AlertTriangle,
+  Upload,
+  FileText,
+  CheckCircle,
+  Loader2,
+  Square,
+  Headphones,
 } from "lucide-react";
-import { apiRequest } from "@/lib/api";
+import { BASE_URL, apiRequest } from "@/lib/api";
 import Image from "next/image";
 import AnimatedAvatar from "@/components/AnimatedAvatar";
+import { io, type Socket } from "socket.io-client";
+import { motion, AnimatePresence } from "framer-motion";
 
 /*
  * Turbopack-safe lazy import.
@@ -49,7 +54,7 @@ import AnimatedAvatar from "@/components/AnimatedAvatar";
 const InterviewAvatar3D = lazy(() => import("@/components/InterviewAvatar3D"));
 
 /* ══════════════════════════════════════════
-   DATA
+   TYPES & INTERFACES
 ══════════════════════════════════════════ */
 type AIParticipant = {
   id: string;
@@ -57,83 +62,157 @@ type AIParticipant = {
   role: string;
   accentColor: string;
   pitch?: number;
+  gender: "MALE" | "FEMALE";
 };
 
 const AI_PARTICIPANTS: AIParticipant[] = [
-  { id: "ai-1", name: "Alex", role: "Technical Panel", accentColor: "#63D2F3", pitch: 0.92 },
-  { id: "ai-2", name: "Jordan", role: "HR Panel", accentColor: "#a78bfa", pitch: 1.12 },
-  { id: "ai-mentor", name: "Quinn", role: "Live Feedback", accentColor: "#34d399", pitch: 0.98 },
+  { 
+    id: "1", 
+    name: "Mr. Arjun", 
+    role: "Behavioral & Personal Interviewer", 
+    accentColor: "#38bdf8", 
+    pitch: 0.98,
+    gender: "MALE"
+  },
+  { 
+    id: "2", 
+    name: "Mr. Vikram", 
+    role: "Technical & Logical Interviewer", 
+    accentColor: "#f59e0b", 
+    pitch: 0.94,
+    gender: "MALE"
+  },
+  { 
+    id: "3", 
+    name: "Ms. Priya", 
+    role: "Creative & Situational Interviewer", 
+    accentColor: "#f472b6", 
+    pitch: 1.05,
+    gender: "FEMALE"
+  },
 ];
 
-const DEMO_QUESTIONS = [
-  "Tell me about yourself and walk me through your professional background.",
-  "What is the difference between a process and a thread in an operating system?",
-  "Can you explain the concept of RESTful APIs and their core principles?",
-  "Describe the most challenging project you've worked on and how you navigated it.",
-  "What are your greatest technical strengths, and where do you see room to grow?",
-  "How do you approach debugging a critical issue in a live production environment?",
-  "Where do you see yourself professionally in three to five years from now?",
-  "Explain the difference between SQL and NoSQL databases with a real-world use case.",
-  "How do you ensure code quality and maintainability in a fast-moving team?",
-  "What is your experience with system design, and how would you design a URL shortener?",
-];
+// API Response Types
+type ProfileResponse = {
+  success: boolean;
+  data?: {
+    name?: string;
+    profilePhoto?: string;
+    resumeText?: string;
+    resumeUploadedAt?: string;
+  };
+};
+
+type StartInterviewResponse = {
+  success: boolean;
+  message?: string;
+  data?: {
+    sessionId: string;
+    interviewer: { 
+      id: string; 
+      name: string; 
+      role: string; 
+      gender?: string 
+    };
+    openingMessage: string;
+    voiceConfig: {
+      geminiVoice: string;
+      googleVoice: {
+        languageCode: string;
+        name: string;
+        ssmlGender: string;
+      };
+    };
+  };
+};
+
+type EndInterviewResponse = {
+  success: boolean;
+  message?: string;
+  data?: {
+    sessionId: string;
+    status: string;
+    feedback: InterviewFeedback;
+    questionCount?: number;
+    duration?: number;
+  };
+};
+
+type InterviewFeedback = {
+  overall: string;
+  behavioral?: string;
+  technical?: string;
+  creative?: string;
+  score?: number;
+  strengths?: string[];
+  improvements?: string[];
+};
+
+type InterviewMessage = {
+  id: string;
+  role: "interviewer" | "user" | "system";
+  text: string;
+  interviewerId?: string;
+  timestamp?: Date;
+};
+
+// WebSocket Event Types
+type WSInterviewMessage = {
+  interviewer: { 
+    id: string; 
+    name: string; 
+    role: string; 
+    gender?: string 
+  };
+  message: string;
+  questionCount?: number;
+  userTranscription?: string;
+};
+
+type WSInterviewAudio = {
+  audioBase64: string;
+  mimeType: string;
+  interviewer: { 
+    id: string; 
+    name: string; 
+    role: string; 
+    gender?: string 
+  };
+  provider: string;
+};
+
+type WSTranscription = {
+  text: string;
+  isFinal: boolean;
+};
+
+// Interview States
+type InterviewPhase = "resume-check" | "preparation" | "readiness" | "active" | "ended";
 
 /* ══════════════════════════════════════════
-   HOOK — SpeechSynthesis
+   AUDIO UTILITIES
 ══════════════════════════════════════════ */
-function useSpeechSynthesis() {
-  const [speakingId, setSpeakingId] = useState<string | null>(null);
-  const keepAliveRef = useRef<ReturnType<typeof setInterval> | null>(null);
+// Downsample from 48kHz to 16kHz as required by API
+function downsample(float32Array: Float32Array, fromRate: number, toRate: number): Float32Array {
+  const ratio = fromRate / toRate;
+  const length = Math.round(float32Array.length / ratio);
+  const result = new Float32Array(length);
+  
+  for (let i = 0; i < length; i++) {
+    result[i] = float32Array[Math.round(i * ratio)];
+  }
+  
+  return result;
+}
 
-  const clearKeepAlive = useCallback(() => {
-    if (keepAliveRef.current) {
-      clearInterval(keepAliveRef.current);
-      keepAliveRef.current = null;
-    }
-  }, []);
-
-  const stop = useCallback(() => {
-    if (typeof window !== "undefined" && window.speechSynthesis) {
-      window.speechSynthesis.cancel();
-    }
-    clearKeepAlive();
-    setSpeakingId(null);
-  }, [clearKeepAlive]);
-
-  const speak = useCallback(
-    (text: string, participantId: string, pitch = 1.0) => {
-      if (typeof window === "undefined" || !window.speechSynthesis) return;
-
-      window.speechSynthesis.cancel();
-      clearKeepAlive();
-      setSpeakingId(participantId);
-
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.rate = 0.93;
-      utterance.pitch = pitch;
-      utterance.volume = 1;
-
-      // Chrome cuts utterances > ~15s — keep alive with pause/resume
-      keepAliveRef.current = setInterval(() => {
-        if (!window.speechSynthesis.speaking) {
-          clearKeepAlive();
-        } else {
-          window.speechSynthesis.pause();
-          window.speechSynthesis.resume();
-        }
-      }, 13_000);
-
-      utterance.onend = () => { setSpeakingId(null); clearKeepAlive(); };
-      utterance.onerror = () => { setSpeakingId(null); clearKeepAlive(); };
-
-      window.speechSynthesis.speak(utterance);
-    },
-    [clearKeepAlive],
-  );
-
-  useEffect(() => () => stop(), [stop]);
-
-  return { speakingId, speak, stop };
+// Convert Float32Array to Int16Array (LINEAR16 format)
+function toInt16(float32Array: Float32Array): Int16Array {
+  const int16 = new Int16Array(float32Array.length);
+  for (let i = 0; i < float32Array.length; i++) {
+    const sample = Math.max(-1, Math.min(1, float32Array[i]));
+    int16[i] = sample < 0 ? sample * 0x8000 : sample * 0x7FFF;
+  }
+  return int16;
 }
 
 /* ══════════════════════════════════════════
@@ -173,156 +252,897 @@ function Avatar3DSkeleton({ accentColor }: { accentColor: string }) {
 }
 
 /* ══════════════════════════════════════════
-   PAGE
+   RESUME SELECT SCREEN
+══════════════════════════════════════════ */
+function ResumeSelectScreen({
+  profileHasResume,
+  resumeInfo,
+  userName,
+  profilePhoto,
+  onContinue,
+}: {
+  profileHasResume: boolean;
+  resumeInfo: { resumeUploadedAt: string; resumeTextLength?: number } | null;
+  userName: string;
+  profilePhoto: string;
+  onContinue: () => void;
+}) {
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [choice, setChoice] = useState<"profile" | "new" | null>(
+    profileHasResume ? "profile" : null
+  );
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploaded, setUploaded] = useState(false);
+  const [uploadedInfo, setUploadedInfo] = useState<{ length: number; preview: string } | null>(null);
+  const [uploadError, setUploadError] = useState("");
+
+  const handleFile = async (file: File) => {
+    setUploadError("");
+    setIsUploading(true);
+    const fd = new FormData();
+    fd.append("resume", file);
+    try {
+      const res = await apiRequest("/student/profile/resume", { method: "POST", body: fd }) as {
+        success: boolean; message?: string;
+        data?: { resumeTextLength?: number; resumePreview?: string };
+      };
+      if (!res.success) throw new Error(res.message || "Upload failed");
+      setUploaded(true);
+      setUploadedInfo({ length: res.data?.resumeTextLength ?? 0, preview: res.data?.resumePreview ?? "" });
+      setChoice("new");
+    } catch (e) {
+      setUploadError(e instanceof Error ? e.message : "Upload failed");
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const canContinue =
+    (choice === "profile" && profileHasResume) ||
+    (choice === "new" && uploaded);
+
+  return (
+    <div
+      className="min-h-screen flex flex-col items-center justify-center p-6"
+      style={{ background: "linear-gradient(160deg, #0b1527 0%, #07090f 100%)" }}
+    >
+      <motion.div
+        initial={{ opacity: 0, y: 24 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.45 }}
+        className="w-full max-w-lg"
+      >
+        {/* Header */}
+        <div className="text-center mb-8">
+          {profilePhoto ? (
+            <img src={profilePhoto} alt={userName} className="w-16 h-16 rounded-full object-cover mx-auto mb-3 border-2 border-white/20" />
+          ) : (
+            <div className="w-16 h-16 rounded-full mx-auto mb-3 border-2 border-white/20 grid place-items-center bg-slate-800">
+              <FileText className="w-7 h-7 text-slate-400" />
+            </div>
+          )}
+          <h1 className="text-2xl font-black text-white">Choose Your Resume</h1>
+          <p className="text-sm text-slate-400 mt-1">
+            Hey <span className="text-white font-bold">{userName}</span> — select the resume you want to interview with
+          </p>
+        </div>
+
+        <div className="space-y-3">
+          {/* Option A — use profile resume */}
+          {profileHasResume && resumeInfo && (
+            <motion.button
+              whileTap={{ scale: 0.98 }}
+              onClick={() => setChoice("profile")}
+              className={`w-full text-left rounded-2xl border-2 p-4 transition-all ${
+                choice === "profile"
+                  ? "border-sky-400/70 bg-sky-500/10"
+                  : "border-slate-700 bg-slate-800/40 hover:border-slate-600"
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${
+                  choice === "profile" ? "border-sky-400 bg-sky-400" : "border-slate-500"
+                }`}>
+                  {choice === "profile" && <span className="w-2 h-2 rounded-full bg-white block" />}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle className="w-4 h-4 text-green-400 flex-shrink-0" />
+                    <span className="font-bold text-white text-sm">Use resume from my profile</span>
+                  </div>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    Uploaded {new Date(resumeInfo.resumeUploadedAt).toLocaleDateString()}
+                    {resumeInfo.resumeTextLength ? ` · ${resumeInfo.resumeTextLength.toLocaleString()} characters extracted` : ""}
+                  </p>
+                </div>
+              </div>
+            </motion.button>
+          )}
+
+          {/* Option B — upload new */}
+          <motion.button
+            whileTap={{ scale: 0.98 }}
+            onClick={() => { setChoice("new"); if (!uploaded) fileInputRef.current?.click(); }}
+            className={`w-full text-left rounded-2xl border-2 p-4 transition-all ${
+              choice === "new"
+                ? "border-violet-400/70 bg-violet-500/10"
+                : "border-slate-700 bg-slate-800/40 hover:border-slate-600"
+            }`}
+          >
+            <div className="flex items-center gap-3">
+              <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${
+                choice === "new" ? "border-violet-400 bg-violet-400" : "border-slate-500"
+              }`}>
+                {choice === "new" && <span className="w-2 h-2 rounded-full bg-white block" />}
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  {uploaded
+                    ? <CheckCircle className="w-4 h-4 text-green-400 flex-shrink-0" />
+                    : <Upload className="w-4 h-4 text-violet-400 flex-shrink-0" />}
+                  <span className="font-bold text-white text-sm">
+                    {uploaded ? "New resume uploaded" : "Upload a different resume"}
+                  </span>
+                </div>
+                {uploaded && uploadedInfo ? (
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    {uploadedInfo.length.toLocaleString()} characters extracted
+                    {uploadedInfo.preview && ` · "${uploadedInfo.preview.slice(0, 60)}…"`}
+                  </p>
+                ) : (
+                  <p className="text-xs text-slate-400 mt-0.5">PDF or DOCX · max 10 MB</p>
+                )}
+              </div>
+              {!uploaded && (
+                <span className="text-[10px] font-black uppercase tracking-widest text-violet-300 bg-violet-500/20 rounded-full px-2 py-1 flex-shrink-0">
+                  Browse
+                </span>
+              )}
+              {uploaded && choice === "new" && (
+                <button
+                  onClick={(e) => { e.stopPropagation(); setUploaded(false); setUploadedInfo(null); fileInputRef.current?.click(); }}
+                  className="text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-white transition flex-shrink-0"
+                >
+                  Change
+                </button>
+              )}
+            </div>
+          </motion.button>
+
+          {/* hidden file input */}
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".pdf,.docx"
+            className="hidden"
+            onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); e.target.value = ""; }}
+          />
+
+          {/* uploading overlay */}
+          {isUploading && (
+            <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-violet-500/10 border border-violet-500/30">
+              <Loader2 className="w-4 h-4 text-violet-400 animate-spin flex-shrink-0" />
+              <span className="text-sm text-violet-200 font-semibold">Uploading &amp; parsing resume…</span>
+            </div>
+          )}
+
+          {/* error */}
+          {uploadError && (
+            <div className="flex items-center gap-2 px-4 py-3 rounded-xl bg-rose-500/10 border border-rose-500/30">
+              <AlertTriangle className="w-4 h-4 text-rose-400 flex-shrink-0" />
+              <span className="text-sm text-rose-200">{uploadError}</span>
+            </div>
+          )}
+        </div>
+
+        {/* Continue */}
+        <motion.button
+          onClick={onContinue}
+          disabled={!canContinue}
+          whileHover={canContinue ? { scale: 1.02 } : {}}
+          whileTap={canContinue ? { scale: 0.97 } : {}}
+          className="mt-7 w-full py-4 rounded-2xl font-black text-base tracking-wide flex items-center justify-center gap-2 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+          style={{
+            background: canContinue
+              ? "linear-gradient(135deg, #38bdf8, #818cf8)"
+              : "#1e293b",
+            color: canContinue ? "#0f172a" : "#64748b",
+          }}
+        >
+          Continue
+          <ChevronRight className="w-5 h-5" />
+        </motion.button>
+
+        <p className="text-center text-xs text-slate-600 mt-4">
+          Resume text is used only to generate personalised interview questions
+        </p>
+      </motion.div>
+    </div>
+  );
+}
+
+/* ══════════════════════════════════════════
+   READINESS / CHEER-UP SCREEN
+══════════════════════════════════════════ */
+function ReadinessScreen({
+  userName,
+  profilePhoto,
+  onContinue,
+  isStarting,
+}: {
+  userName: string;
+  profilePhoto: string;
+  onContinue: () => void;
+  isStarting: boolean;
+}) {
+  const tips = [
+    { icon: "🎤", text: "Speak clearly — real-time Google STT captures your voice" },
+    { icon: "💡", text: "Use STAR format for behavioural questions" },
+    { icon: "⚡", text: "3 AI interviewers take turns — stay sharp!" },
+    { icon: "🧘", text: "Take a breath. You've prepared for this." },
+  ];
+
+  return (
+    <div
+      className="min-h-screen flex flex-col items-center justify-center p-6"
+      style={{ background: "linear-gradient(160deg, #0b1527 0%, #07090f 100%)" }}
+    >
+      <motion.div
+        initial={{ opacity: 0, scale: 0.93 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ duration: 0.5, ease: "easeOut" }}
+        className="w-full max-w-md text-center"
+      >
+        {/* Glow ring + avatar */}
+        <div className="relative w-28 h-28 mx-auto mb-6">
+          <div
+            className="absolute inset-0 rounded-full"
+            style={{
+              background: "radial-gradient(circle, #38bdf850 0%, transparent 72%)",
+              animation: "ripple 2s ease-in-out infinite",
+            }}
+          />
+          <style>{`@keyframes ripple { 0%,100%{transform:scale(1);opacity:.7} 50%{transform:scale(1.18);opacity:.3} }`}</style>
+          {profilePhoto ? (
+            <img src={profilePhoto} alt={userName} className="w-28 h-28 rounded-full object-cover border-4 border-sky-400/60 relative z-10" />
+          ) : (
+            <div className="w-28 h-28 rounded-full border-4 border-sky-400/60 grid place-items-center bg-slate-800 relative z-10">
+              <Headphones className="w-10 h-10 text-sky-400" />
+            </div>
+          )}
+        </div>
+
+        {/* Headline */}
+        <h1 className="text-3xl font-black text-white mb-1">
+          You've got this, {userName.split(" ")[0]}! 🚀
+        </h1>
+        <p className="text-slate-400 text-sm mb-7">
+          Your AI panel is ready. Let's see what you're made of.
+        </p>
+
+        {/* Interviewers row */}
+        <div className="flex items-center justify-center gap-4 mb-7">
+          {AI_PARTICIPANTS.map((ai, i) => (
+            <motion.div
+              key={ai.id}
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.15 + i * 0.1 }}
+              className="flex flex-col items-center gap-1.5"
+            >
+              <div
+                className="w-12 h-12 rounded-full grid place-items-center font-black text-sm"
+                style={{ background: `${ai.accentColor}25`, border: `2px solid ${ai.accentColor}60`, color: ai.accentColor }}
+              >
+                {ai.name.split(" ")[1]?.[0] ?? ai.name[0]}
+              </div>
+              <span className="text-[10px] font-bold text-slate-400">{ai.name.split(" ")[1] ?? ai.name}</span>
+            </motion.div>
+          ))}
+        </div>
+
+        {/* Tips */}
+        <div className="space-y-2 mb-7 text-left">
+          {tips.map((tip, i) => (
+            <motion.div
+              key={i}
+              initial={{ opacity: 0, x: -12 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.3 + i * 0.08 }}
+              className="flex items-center gap-3 bg-white/5 border border-white/10 rounded-xl px-4 py-2.5"
+            >
+              <span className="text-lg flex-shrink-0">{tip.icon}</span>
+              <span className="text-sm text-slate-300 font-medium">{tip.text}</span>
+            </motion.div>
+          ))}
+        </div>
+
+        {/* CTA */}
+        <motion.button
+          onClick={onContinue}
+          disabled={isStarting}
+          whileHover={{ scale: 1.03 }}
+          whileTap={{ scale: 0.97 }}
+          className="w-full py-4 rounded-2xl font-black text-base tracking-wide text-slate-900 flex items-center justify-center gap-2 transition-all disabled:opacity-50"
+          style={{ background: "linear-gradient(135deg, #38bdf8, #818cf8)" }}
+        >
+          {isStarting ? (
+            <><Loader2 className="w-5 h-5 animate-spin" /> Starting Interview…</>
+          ) : (
+            <>Let&apos;s Go! <ChevronRight className="w-5 h-5" /></>
+          )}
+        </motion.button>
+
+        <p className="text-xs text-slate-600 mt-3">
+          Make sure your microphone is allowed in the browser
+        </p>
+      </motion.div>
+    </div>
+  );
+}
+/* ══════════════════════════════════════════
+   MAIN MOCK INTERVIEW COMPONENT
 ══════════════════════════════════════════ */
 export default function MockInterviewPage() {
-  /* Media state */
+  // Interview Phase Management
+  const [interviewPhase, setInterviewPhase] = useState<InterviewPhase>("resume-check");
+  const [resumeInfo, setResumeInfo] = useState<{ resumeUploadedAt: string; resumeTextLength?: number } | null>(null);
+  
+  // Media & Device State
   const [isMicOn, setIsMicOn] = useState(false);
   const [isCamOn, setIsCamOn] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
   const [deviceError, setDeviceError] = useState("");
   const [hasStream, setHasStream] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
-
-  /* Profile */
+  
+  // Profile Information
   const [profilePhoto, setProfilePhoto] = useState("");
   const [userName, setUserName] = useState("You");
-
-  /* Interview state */
-  const [questionIndex, setQuestionIndex] = useState(0);
-  const [activeAiId, setActiveAiId] = useState("ai-1");
+  
+  // Interview Session State
+  const [sessionId, setSessionId] = useState<string | null>(null);
   const [sessionStarted, setSessionStarted] = useState(false);
-  const [isParticipantsOpen, setIsParticipantsOpen] = useState(false);
+  const [questionIndex, setQuestionIndex] = useState(0);
+  const [activeAiId, setActiveAiId] = useState("1");
   const [currentQuestion, setCurrentQuestion] = useState<string | null>(null);
-
+  const [messages, setMessages] = useState<InterviewMessage[]>([]);
+  
+  // Audio & Speech State
+  const [isRecording, setIsRecording] = useState(false);
+  const [currentTranscription, setCurrentTranscription] = useState("");
+  const [finalTranscription, setFinalTranscription] = useState("");
+  const [speakingId, setSpeakingId] = useState<string | null>(null);
+  
+  // Loading & Error States
+  const [isStarting, setIsStarting] = useState(false);
+  const [isEnding, setIsEnding] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const [interviewError, setInterviewError] = useState<string | null>(null);
+  const [processingMessage, setProcessingMessage] = useState<string | null>(null);
+  
+  // Final Results
+  const [feedback, setFeedback] = useState<InterviewFeedback | null>(null);
+  
+  // UI State
+  const [isParticipantsOpen, setIsParticipantsOpen] = useState(false);
+  
+  // Refs for media and connections
   const streamRef = useRef<MediaStream | null>(null);
   const localVideoRef = useRef<HTMLVideoElement | null>(null);
-
-  const { speakingId, speak, stop } = useSpeechSynthesis();
-
+  const socketRef = useRef<Socket | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const processorRef = useRef<ScriptProcessorNode | null>(null);
+  
   const activeAI = AI_PARTICIPANTS.find((p) => p.id === activeAiId) ?? AI_PARTICIPANTS[0];
   const inactiveAIs = AI_PARTICIPANTS.filter((p) => p.id !== activeAiId);
 
-  /* ── Media init ── */
-  async function startLocalMedia() {
+  /* ══════════════════════════════════════════
+     INITIALIZATION & PROFILE LOADING
+  ══════════════════════════════════════════ */
+  useEffect(() => {
+    loadUserProfile();
+    initializeMedia();
+    
+    return () => {
+      cleanupResources();
+    };
+  }, []);
+
+  const loadUserProfile = async () => {
+    try {
+      const response = await apiRequest("/student/profile", { method: "GET" }) as ProfileResponse;
+      
+      if (response.success && response.data) {
+        const { name, profilePhoto, resumeText, resumeUploadedAt } = response.data;
+        
+        if (name) setUserName(name);
+        if (profilePhoto) setProfilePhoto(profilePhoto);
+        
+        // Check if resume exists — stay on resume-select; the screen will
+        // show the profile resume as the pre-selected option
+        if (resumeText && resumeUploadedAt) {
+          setResumeInfo({
+            resumeUploadedAt,
+            resumeTextLength: resumeText.length
+          });
+        }
+        // Always start at resume-check so user consciously picks their resume
+      }
+    } catch (error) {
+      console.error("Failed to load profile:", error);
+    }
+  };
+
+  const initializeMedia = async () => {
     try {
       setIsConnecting(true);
       setDeviceError("");
+      
+      // Initialize empty stream
       streamRef.current = new MediaStream();
       setHasStream(true);
       setIsCamOn(false);
       setIsMicOn(false);
     } catch (error) {
-      console.error("Failed to initialise media", error);
-      setDeviceError("Please allow camera and microphone access to continue.");
+      console.error("Failed to initialize media:", error);
+      setDeviceError("Failed to initialize media devices");
       setHasStream(false);
     } finally {
       setIsConnecting(false);
     }
-  }
+  };
 
-  function stopLocalMedia() {
-    streamRef.current?.getTracks().forEach((t) => t.stop());
+  const cleanupResources = () => {
+    // Stop all tracks
+    streamRef.current?.getTracks().forEach((track) => track.stop());
     streamRef.current = null;
+    
+    // Close audio context
+    if (audioContextRef.current?.state !== "closed") {
+      audioContextRef.current?.close();
+    }
+    
+    // Disconnect socket
+    socketRef.current?.disconnect();
+    socketRef.current = null;
+    
+    // Stop audio
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current = null;
+    }
+    
     setHasStream(false);
-  }
+  };
 
-  useEffect(() => {
-    startLocalMedia();
-    return () => stopLocalMedia();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  useEffect(() => {
-    async function fetchProfile() {
-      try {
-        const res = await apiRequest("/student/profile", { method: "GET" });
-        const root = (res as Record<string, unknown>) ?? {};
-        const data = ((root.data as Record<string, unknown>) ?? {}) as Record<string, unknown>;
-        if (typeof data.profilePhoto === "string" && data.profilePhoto.trim())
-          setProfilePhoto(data.profilePhoto);
-        if (typeof data.name === "string" && data.name.trim())
-          setUserName(data.name.trim());
-      } catch { /* non-fatal */ }
+  /* ══════════════════════════════════════════
+     AUDIO PROCESSING & SPEECH-TO-SPEECH
+  ══════════════════════════════════════════ */
+  const setupAudioProcessing = async () => {
+    try {
+      // Create AudioContext
+      audioContextRef.current = new AudioContext({ sampleRate: 48000 });
+      
+      // Get microphone stream
+      const micStream = await navigator.mediaDevices.getUserMedia({ 
+        audio: {
+          sampleRate: 48000,
+          channelCount: 1,
+          echoCancellation: true,
+          noiseSuppression: true,
+        }
+      });
+      
+      const source = audioContextRef.current.createMediaStreamSource(micStream);
+      
+      // Create ScriptProcessor for real-time audio processing
+      const processor = audioContextRef.current.createScriptProcessor(4096, 1, 1);
+      
+      processor.addEventListener('audioprocess', (event) => {
+        if (!isRecording || !socketRef.current?.connected) return;
+        
+        const inputData = event.inputBuffer.getChannelData(0);
+        
+        // Downsample from 48kHz to 16kHz
+        const downsampled = downsample(inputData, 48000, 16000);
+        const int16Data = toInt16(downsampled);
+        
+        // Send audio data to server
+        socketRef.current.emit('interviewAudioData', int16Data.buffer);
+      });
+      
+      source.connect(processor);
+      processor.connect(audioContextRef.current.destination);
+      
+      processorRef.current = processor;
+      
+      // Add track to stream for video display
+      streamRef.current?.addTrack(micStream.getAudioTracks()[0]);
+      
+      return true;
+    } catch (error) {
+      console.error("Failed to setup audio processing:", error);
+      setDeviceError("Microphone access denied or not available");
+      return false;
     }
-    fetchProfile();
-  }, []);
+  };
 
-  useEffect(() => {
-    if (!localVideoRef.current || !streamRef.current) return;
-    localVideoRef.current.srcObject = streamRef.current;
-  }, [hasStream]);
+  const startRecording = async () => {
+    if (!socketRef.current?.connected) {
+      setInterviewError("Not connected to interview server");
+      return;
+    }
 
-  /* ── Mic / Camera ── */
-  async function toggleMic() {
+    if (!audioContextRef.current) {
+      const success = await setupAudioProcessing();
+      if (!success) return;
+    }
+
+    setIsRecording(true);
+    setCurrentTranscription("");
+    setFinalTranscription("");
+    
+    // Start audio streaming
+    socketRef.current.emit('interviewStartStream', {
+      encoding: 'LINEAR16',
+      sampleRateHertz: 16000,
+      languageCode: 'en-US'
+    });
+  };
+
+  const stopRecording = () => {
+    if (!socketRef.current?.connected) return;
+    
+    setIsRecording(false);
+    
+    // Stop audio streaming
+    socketRef.current.emit('interviewStopStream');
+  };
+
+  /* ══════════════════════════════════════════
+     MEDIA DEVICE CONTROLS
+  ══════════════════════════════════════════ */
+  const toggleMicrophone = async () => {
     if (!streamRef.current) return;
+    
     if (isMicOn) {
-      streamRef.current.getAudioTracks().forEach((t) => {
-        t.stop(); streamRef.current?.removeTrack(t);
+      streamRef.current.getAudioTracks().forEach((track) => {
+        track.stop();
+        streamRef.current?.removeTrack(track);
       });
       setIsMicOn(false);
-      return;
+      
+      // Clean up audio processing
+      if (audioContextRef.current && audioContextRef.current.state !== "closed") {
+        await audioContextRef.current.close();
+        audioContextRef.current = null;
+      }
+    } else {
+      try {
+        const success = await setupAudioProcessing();
+        if (success) {
+          setIsMicOn(true);
+          setDeviceError("");
+        }
+      } catch (error) {
+        setDeviceError("Microphone access denied");
+        setIsMicOn(false);
+      }
     }
-    try {
-      const s = await navigator.mediaDevices.getUserMedia({ audio: true });
-      streamRef.current.addTrack(s.getAudioTracks()[0]);
-      setIsMicOn(true);
-      setDeviceError("");
-    } catch {
-      setDeviceError("Microphone access denied.");
-      setIsMicOn(false);
-    }
-  }
+  };
 
-  async function toggleCamera() {
+  const toggleCamera = async () => {
     if (!streamRef.current) return;
+    
     if (isCamOn) {
-      streamRef.current.getVideoTracks().forEach((t) => {
-        t.stop(); streamRef.current?.removeTrack(t);
+      streamRef.current.getVideoTracks().forEach((track) => {
+        track.stop();
+        streamRef.current?.removeTrack(track);
       });
       setIsCamOn(false);
+    } else {
+      try {
+        const videoStream = await navigator.mediaDevices.getUserMedia({ video: true });
+        streamRef.current.addTrack(videoStream.getVideoTracks()[0]);
+        
+        if (localVideoRef.current) {
+          localVideoRef.current.srcObject = streamRef.current;
+        }
+        
+        setIsCamOn(true);
+        setDeviceError("");
+      } catch (error) {
+        setDeviceError("Camera access denied");
+        setIsCamOn(false);
+      }
+    }
+  };
+
+  /* ══════════════════════════════════════════
+     WEBSOCKET & INTERVIEW MANAGEMENT
+  ══════════════════════════════════════════ */
+  const getWebSocketUrl = () => {
+    const baseUrl = BASE_URL.replace(/\/api\/?$/, "");
+    const wsUrl = baseUrl.replace(/^https?:/, baseUrl.startsWith('https') ? 'wss:' : 'ws:');
+    return `${wsUrl}/mock-interview`;
+  };
+
+  const connectWebSocket = (sessionId: string) => {
+    if (socketRef.current) return;
+    
+    const token = localStorage.getItem("token") || localStorage.getItem("access_token") || "";
+    
+    const socket = io(getWebSocketUrl(), {
+      transports: ["websocket"],
+      auth: { token },
+    });
+    
+    socketRef.current = socket;
+    
+    // Connection events
+    socket.on("connect", () => {
+      console.log("Connected to interview server");
+      socket.emit("joinInterview", { sessionId });
+    });
+    
+    socket.on("connected", (data) => {
+      console.log("Server connected:", data.message);
+    });
+    
+    socket.on("interviewJoined", (payload: { sessionId: string; questionCount?: number; currentInterviewer?: string }) => {
+      console.log("Joined interview room:", payload);
+      if (payload.questionCount) setQuestionIndex(payload.questionCount);
+      if (payload.currentInterviewer) setActiveAiId(payload.currentInterviewer);
+    });
+    
+    // Interview message events
+    socket.on("interviewMessage", (payload: WSInterviewMessage) => {
+      console.log("Interview message:", payload);
+      setProcessingMessage(null);
+      setCurrentQuestion(payload.message);
+      
+      if (payload.questionCount) setQuestionIndex(payload.questionCount);
+      if (payload.interviewer?.id) setActiveAiId(payload.interviewer.id);
+      
+      addMessage({
+        id: `ai-${Date.now()}`,
+        role: "interviewer",
+        text: payload.message,
+        interviewerId: payload.interviewer?.id,
+        timestamp: new Date(),
+      });
+    });
+    
+    // Audio playback
+    socket.on("interviewAudio", (payload: WSInterviewAudio) => {
+      console.log("Interview audio received");
+      if (payload.interviewer?.id && payload.audioBase64 && payload.mimeType) {
+        playInterviewerAudio(payload.interviewer.id, payload.audioBase64, payload.mimeType);
+      }
+    });
+    
+    // Real-time transcription
+    socket.on("interviewTranscription", (payload: WSTranscription) => {
+      console.log("Transcription:", payload);
+      if (payload.isFinal) {
+        setFinalTranscription(payload.text);
+        setCurrentTranscription("");
+        
+        // Add user message to conversation
+        addMessage({
+          id: `user-${Date.now()}`,
+          role: "user", 
+          text: payload.text,
+          timestamp: new Date(),
+        });
+      } else {
+        setCurrentTranscription(payload.text);
+      }
+    });
+    
+    // Processing indicators
+    socket.on("interviewProcessing", (payload: { message?: string }) => {
+      setProcessingMessage(payload.message || "Processing your answer...");
+    });
+    
+    socket.on("interviewStreamStarted", (payload: { message: string }) => {
+      console.log("Stream started:", payload.message);
+    });
+    
+    // Interview completion
+    socket.on("interviewEnded", (payload: { feedback?: InterviewFeedback; questionCount?: number; sessionId?: string; duration?: number }) => {
+      console.log("Interview ended:", payload);
+      setProcessingMessage(null);
+      setInterviewPhase("ended");
+      
+      if (payload.questionCount) setQuestionIndex(payload.questionCount);
+      if (payload.feedback) setFeedback(payload.feedback);
+    });
+    
+    // Error handling
+    socket.on("interviewError", (payload: { message?: string }) => {
+      console.error("Interview error:", payload);
+      setInterviewError(payload.message || "Interview error occurred");
+    });
+    
+    socket.on("interviewTTSError", (payload: { message?: string }) => {
+      console.error("TTS error:", payload);
+      setInterviewError(`Voice generation error: ${payload.message || "Unknown TTS error"}`);
+    });
+    
+    socket.on("disconnect", () => {
+      console.log("Disconnected from interview server");
+    });
+  };
+
+  const addMessage = (message: InterviewMessage) => {
+    setMessages(prev => [...prev, message]);
+  };
+
+  const playInterviewerAudio = (interviewerId: string, audioBase64: string, mimeType: string) => {
+    if (isMuted) return;
+    
+    const audioSrc = `data:${mimeType};base64,${audioBase64}`;
+    const audio = new Audio(audioSrc);
+    
+    audioRef.current = audio;
+    setSpeakingId(interviewerId);
+    
+    audio.onended = () => setSpeakingId(null);
+    audio.onerror = (error) => {
+      console.error("Audio playback error:", error);
+      setSpeakingId(null);
+    };
+    
+    audio.play().catch(error => {
+      console.error("Failed to play audio:", error);
+      setSpeakingId(null);
+    });
+  };
+
+  /* ══════════════════════════════════════════
+     INTERVIEW FLOW HANDLERS
+  ══════════════════════════════════════════ */
+  const handleResumeUploadSuccess = () => {
+    // Reload profile to get resume info
+    loadUserProfile();
+  };
+
+  const handleInterviewReady = () => {
+    setInterviewPhase("readiness");
+  };
+
+  const startInterview = async () => {
+    if (isStarting || sessionStarted) return;
+    
+    setIsStarting(true);
+    setInterviewError(null);
+    setFeedback(null);
+    setMessages([]);
+    
+    try {
+      const response = await apiRequest("/mock-interview/start", { 
+        method: "POST" 
+      }) as StartInterviewResponse;
+      
+      if (!response.success || !response.data) {
+        throw new Error(response.message || "Failed to start interview");
+      }
+      
+      const { sessionId: newSessionId, interviewer, openingMessage } = response.data;
+      
+      setSessionId(newSessionId);
+      setSessionStarted(true);
+      setInterviewPhase("active");
+      setCurrentQuestion(openingMessage);
+      setQuestionIndex(1);
+      setActiveAiId(interviewer.id);
+      
+      // Add opening message
+      addMessage({
+        id: `system-${Date.now()}`,
+        role: "system",
+        text: openingMessage,
+        interviewerId: interviewer.id,
+        timestamp: new Date(),
+      });
+      
+      // Connect WebSocket
+      connectWebSocket(newSessionId);
+      
+    } catch (error) {
+      console.error("Failed to start interview:", error);
+      setInterviewError(
+        error instanceof Error 
+          ? error.message 
+          : "Failed to start interview. Please make sure you have uploaded your resume."
+      );
+    } finally {
+      setIsStarting(false);
+    }
+  };
+
+  const endInterview = async () => {
+    if (!sessionId) {
+      cleanupResources();
+      setInterviewPhase("ended");
       return;
     }
+    
+    setIsEnding(true);
+    setInterviewError(null);
+    
     try {
-      const s = await navigator.mediaDevices.getUserMedia({ video: true });
-      streamRef.current.addTrack(s.getVideoTracks()[0]);
-      if (localVideoRef.current) localVideoRef.current.srcObject = streamRef.current;
-      setIsCamOn(true);
-      setDeviceError("");
-    } catch {
-      setDeviceError("Camera access denied.");
-      setIsCamOn(false);
+      if (socketRef.current?.connected) {
+        socketRef.current.emit("endInterview");
+      } else {
+        const response = await apiRequest("/mock-interview/end", {
+          method: "POST",
+          body: JSON.stringify({ sessionId }),
+        }) as EndInterviewResponse;
+        
+        if (response.success && response.data?.feedback) {
+          setFeedback(response.data.feedback);
+        }
+      }
+    } catch (error) {
+      console.error("Failed to end interview:", error);
+      setInterviewError(
+        error instanceof Error 
+          ? error.message 
+          : "Failed to end interview properly"
+      );
+    } finally {
+      setIsEnding(false);
+      cleanupResources();
+      setSessionStarted(false);
+      setInterviewPhase("ended");
+      setSessionId(null);
+      setIsRecording(false);
     }
-  }
+  };
 
-  function endCall() {
-    stopLocalMedia();
-    stop();
-    setIsMicOn(false);
-    setIsCamOn(false);
-    setSessionStarted(false);
-    setCurrentQuestion(null);
-  }
-
-  /* ── AI asks next question ── */
-  function triggerAIQuestion() {
-    if (speakingId) return;
-    const q = DEMO_QUESTIONS[questionIndex % DEMO_QUESTIONS.length];
-    setCurrentQuestion(q);
-    setQuestionIndex((i) => i + 1);
-    setSessionStarted(true);
-    if (!isMuted) speak(q, activeAiId, activeAI.pitch ?? 1.0);
-  }
-
-  /* ── Switch active AI ── */
-  function selectAI(id: string) {
-    if (id === activeAiId) return;
-    stop();
+  const selectAI = (id: string) => {
+    if (id === activeAiId || sessionStarted) return;
     setActiveAiId(id);
+  };
+
+  /* ══════════════════════════════════════════
+     VIDEO STREAM EFFECT
+  ══════════════════════════════════════════ */
+  useEffect(() => {
+    if (localVideoRef.current && streamRef.current) {
+      localVideoRef.current.srcObject = streamRef.current;
+    }
+  }, [hasStream, isCamOn]);
+
+  const questionNum = Math.max(1, questionIndex);
+
+  /* ── pre-interview phase screens (full-page replacements) ── */
+  if (interviewPhase === "resume-check") {
+    return (
+      <ResumeSelectScreen
+        profileHasResume={!!resumeInfo}
+        resumeInfo={resumeInfo}
+        userName={userName}
+        profilePhoto={profilePhoto}
+        onContinue={() => setInterviewPhase("readiness")}
+      />
+    );
   }
 
-  const totalQuestions = DEMO_QUESTIONS.length;
-  const questionNum = Math.min(questionIndex, totalQuestions);
+  if (interviewPhase === "readiness") {
+    return (
+      <ReadinessScreen
+        userName={userName}
+        profilePhoto={profilePhoto}
+        onContinue={startInterview}
+        isStarting={isStarting}
+      />
+    );
+  }
 
   return (
     <div className="max-w-6xl mx-auto px-4 pb-10">
@@ -342,13 +1162,19 @@ export default function MockInterviewPage() {
         className="relative rounded-[2rem] border-2 border-slate-200 dark:border-zinc-800 shadow-2xl overflow-hidden"
         style={{ background: "linear-gradient(160deg, #0b1527 0%, #07090f 100%)" }}
       >
+        {interviewError && (
+          <div className="m-4 rounded-xl border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-xs font-semibold text-rose-200 flex items-center gap-2">
+            <AlertTriangle size={14} />
+            <span>{interviewError}</span>
+          </div>
+        )}
         {/* Status banner */}
         {(isConnecting || deviceError) && (
           <div className="m-4 rounded-xl border border-slate-700 bg-slate-800/80 px-4 py-3 text-xs font-semibold text-slate-200 flex items-center justify-between gap-3">
             <span>{isConnecting ? "Preparing interview room…" : deviceError}</span>
             {!isConnecting && (
               <button
-                onClick={startLocalMedia}
+                onClick={initializeMedia}
                 className="px-3 py-1.5 rounded-lg font-black uppercase tracking-wide text-[10px]"
                 style={{ background: activeAI.accentColor, color: "#0f172a" }}
               >
@@ -502,12 +1328,12 @@ export default function MockInterviewPage() {
             <div>
               <p className="text-[10px] font-black uppercase tracking-widest mb-2"
                 style={{ color: activeAI.accentColor }}>
-                {sessionStarted ? `Question ${questionNum} / ${totalQuestions}` : "Current Question"}
+              {sessionStarted ? `Question ${questionNum}` : "Current Question"}
+            </p>
+            {currentQuestion ? (
+              <p className="text-sm font-semibold text-white leading-relaxed">
+                {currentQuestion}
               </p>
-              {currentQuestion ? (
-                <p className="text-sm font-semibold text-white leading-relaxed">
-                  {currentQuestion}
-                </p>
               ) : (
                 <p className="text-sm font-medium text-slate-500 italic">
                   Click &quot;Ask AI&quot; to begin the interview…
@@ -515,21 +1341,22 @@ export default function MockInterviewPage() {
               )}
             </div>
 
-            {/* Progress bar */}
+            {/* Live transcription / processing status */}
             {sessionStarted && (
-              <div className="mt-3">
-                <div className="w-full h-1 rounded-full bg-white/10 overflow-hidden">
-                  <div
-                    className="h-full rounded-full transition-all duration-700"
-                    style={{
-                      width: `${(questionNum / totalQuestions) * 100}%`,
-                      background: `linear-gradient(90deg, ${activeAI.accentColor}, ${activeAI.accentColor}80)`,
-                    }}
-                  />
-                </div>
-                <p className="text-[10px] font-semibold text-slate-500 mt-1">
-                  {totalQuestions - questionNum} question{totalQuestions - questionNum !== 1 ? "s" : ""} remaining
-                </p>
+              <div className="mt-4">
+                {currentTranscription ? (
+                  <div className="rounded-xl border border-white/10 bg-black/40 px-3 py-2">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-1">You (speaking…)</p>
+                    <p className="text-sm text-white italic">{currentTranscription}</p>
+                  </div>
+                ) : processingMessage ? (
+                  <div className="flex items-center gap-2 text-slate-400">
+                    <Loader2 size={12} className="animate-spin" />
+                    <span className="text-xs">{processingMessage}</span>
+                  </div>
+                ) : (
+                  <p className="text-xs text-slate-600 italic">Speak using your mic to answer…</p>
+                )}
               </div>
             )}
           </div>
@@ -562,22 +1389,22 @@ export default function MockInterviewPage() {
 
             {/* Ask AI */}
             <button
-              onClick={triggerAIQuestion}
-              disabled={!!speakingId || questionIndex >= totalQuestions}
+              onClick={startInterview}
+              disabled={sessionStarted || isStarting}
               className="inline-flex items-center gap-2 px-4 h-10 rounded-full font-black text-xs uppercase tracking-wide transition disabled:opacity-40 disabled:cursor-not-allowed"
               style={{
                 background: `linear-gradient(135deg, ${activeAI.accentColor}, #818cf8)`,
                 color: "#0f172a",
               }}
-              aria-label="Ask AI next question"
+              aria-label="Start mock interview"
             >
               <Play size={14} />
-              {speakingId ? "Speaking…" : questionIndex >= totalQuestions ? "Done" : "Ask AI"}
+              {isStarting ? "Starting…" : sessionStarted ? "In Session" : "Start Interview"}
             </button>
 
             {/* Mic */}
             <button
-              onClick={toggleMic}
+              onClick={toggleMicrophone}
               disabled={!hasStream}
               className={`w-10 h-10 rounded-full grid place-items-center transition ${isMicOn ? "bg-slate-700 text-white" : "bg-red-500 text-white"
                 } disabled:opacity-40`}
@@ -599,7 +1426,7 @@ export default function MockInterviewPage() {
 
             {/* Mute AI audio */}
             <button
-              onClick={() => { setIsMuted((m) => !m); if (!isMuted) stop(); }}
+              onClick={() => { setIsMuted((m) => !m); if (!isMuted && audioRef.current) audioRef.current.pause(); }}
               className={`w-10 h-10 rounded-full grid place-items-center transition ${isMuted ? "bg-amber-500 text-white" : "bg-slate-700 text-white"
                 }`}
               aria-label={isMuted ? "Unmute AI" : "Mute AI"}
@@ -629,17 +1456,17 @@ export default function MockInterviewPage() {
 
             {/* End */}
             <button
-              onClick={endCall}
+              onClick={endInterview}
               className="px-4 h-10 rounded-full inline-flex items-center gap-2 bg-red-500 text-white font-black text-xs uppercase tracking-wide"
               aria-label="End call"
             >
               <PhoneOff size={15} />
-              End
+              {isEnding ? "Ending…" : "End"}
             </button>
           </div>
 
           {/* Right: next question hint */}
-          {sessionStarted && !speakingId && questionIndex < totalQuestions && (
+          {sessionStarted && !speakingId && (
             <div className="hidden md:flex items-center gap-1.5 text-slate-500">
               <ChevronRight size={13} />
               <span className="text-[10px] font-semibold">Next ready</span>
@@ -703,9 +1530,63 @@ export default function MockInterviewPage() {
         )}
       </section>
 
+      {/* Conversation */}
+      {messages.length > 0 && (
+        <div className="mt-6 rounded-[1.5rem] border border-slate-200 dark:border-zinc-800 bg-white/60 dark:bg-black/40 p-4 space-y-3">
+          <p className="text-xs font-black uppercase tracking-widest text-slate-500 dark:text-zinc-500">
+            Conversation
+          </p>
+          <div className="space-y-2">
+            {messages.map((msg) => {
+              const isUser = msg.role === "user";
+              const speaker = msg.interviewerId
+                ? AI_PARTICIPANTS.find((ai) => ai.id === msg.interviewerId)?.name
+                : msg.role === "system"
+                  ? "System"
+                  : "You";
+              return (
+                <div
+                  key={msg.id}
+                  className={`rounded-2xl px-4 py-3 text-sm ${isUser
+                    ? "bg-slate-900 text-white ml-auto max-w-[70%]"
+                    : "bg-slate-100 text-slate-900 dark:bg-zinc-900 dark:text-white max-w-[80%]"
+                    }`}
+                >
+                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-zinc-500 mb-1">
+                    {speaker}
+                  </p>
+                  <p className="font-medium leading-relaxed">{msg.text}</p>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Feedback */}
+      {feedback && (
+        <div className="mt-6 rounded-[1.5rem] border border-emerald-500/30 bg-emerald-500/10 p-5 text-emerald-100">
+          <div className="flex items-center gap-3">
+            <div className="w-2.5 h-2.5 rounded-full bg-emerald-400" />
+            <p className="text-sm font-black uppercase tracking-widest">Interview Feedback</p>
+            {typeof feedback.score === "number" && (
+              <span className="ml-auto text-xs font-black bg-emerald-500/20 text-emerald-200 px-2 py-1 rounded-full">
+                Score {feedback.score}%
+              </span>
+            )}
+          </div>
+          <p className="mt-3 text-sm font-medium">{feedback.overall}</p>
+          <div className="mt-4 space-y-2 text-sm">
+            {feedback.behavioral && <p><span className="font-semibold">Behavioral:</span> {feedback.behavioral}</p>}
+            {feedback.technical && <p><span className="font-semibold">Technical:</span> {feedback.technical}</p>}
+            {feedback.creative && <p><span className="font-semibold">Creative:</span> {feedback.creative}</p>}
+          </div>
+        </div>
+      )}
+
       {/* Hint */}
       <p className="text-[11px] text-slate-500 dark:text-zinc-600 mt-3 text-center font-semibold">
-        Click a thumbnail to switch the active 3D interviewer · Click &quot;Ask AI&quot; to hear the next question
+        Click a thumbnail to switch the active 3D interviewer · Start the interview, then send text answers to receive the next question
       </p>
     </div>
   );

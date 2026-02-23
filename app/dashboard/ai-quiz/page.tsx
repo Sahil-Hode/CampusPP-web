@@ -346,6 +346,43 @@ export default function AIQuizPage() {
 
             {submitResult && (
               <div className="bg-zinc-950 border border-zinc-900 rounded-4xl p-6 space-y-4">
+                {submitResult.passed && submitResult.score >= 70 && (
+                  <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-2xl p-5">
+                    <div className="flex items-center gap-3">
+                      <CheckCircle2 className="text-emerald-400" size={26} />
+                      <div>
+                        <p className="text-lg font-black text-emerald-300 uppercase tracking-widest">
+                          Congratulations
+                        </p>
+                        <p className="text-sm text-emerald-200">
+                          You passed with a score of <span className="font-black">{submitResult.score}%</span>
+                        </p>
+                      </div>
+                    </div>
+                    <div className="mt-3 text-sm text-emerald-100">
+                      Completed: <span className="font-semibold">{quiz?.moduleTitle || "Module"}</span>
+                      {quiz?.stepTitle ? ` · ${quiz.stepTitle}` : ""}
+                    </div>
+                  </div>
+                )}
+                {(!submitResult.passed || submitResult.score < 70) && (
+                  <div className="bg-rose-500/10 border border-rose-500/30 rounded-2xl p-5">
+                    <div className="flex items-center gap-3">
+                      <XCircle className="text-rose-400" size={26} />
+                      <div>
+                        <p className="text-lg font-black text-rose-300 uppercase tracking-widest">
+                          Try Again
+                        </p>
+                        <p className="text-sm text-rose-200">
+                          You scored <span className="font-black">{submitResult.score}%</span>. Minimum required is 70%.
+                        </p>
+                      </div>
+                    </div>
+                    <div className="mt-3 text-sm text-rose-100">
+                      {submitResult.message || "Review the material and attempt the quiz again."}
+                    </div>
+                  </div>
+                )}
                 <div className="flex items-center gap-3">
                   {submitResult.passed ? (
                     <CheckCircle2 className="text-emerald-400" size={22} />
