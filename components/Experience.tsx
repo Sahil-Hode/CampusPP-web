@@ -45,7 +45,7 @@ export const Experience = () => {
   useEffect(() => {
     // Initial view: Full body
     if (cameraControls.current) {
-      cameraControls.current.setLookAt(0, 1.2, 4, 0, 1.0, 0, true);
+      cameraControls.current.setLookAt(0, 1.9, 3.2, 0, 1.62, 0, true);
     }
   }, []);
 
@@ -53,10 +53,10 @@ export const Experience = () => {
     if (cameraControls.current) {
       if (cameraZoomed) {
         // Zoomed view: Upper body/Face
-        cameraControls.current.setLookAt(0, 1.5, 1.5, 0, 1.5, 0, true);
+        cameraControls.current.setLookAt(0, 2.08, 1.3, 0, 1.9, 0, true);
       } else {
         // Normal view: Full body
-        cameraControls.current.setLookAt(0, 1.2, 4, 0, 1.0, 0, true);
+        cameraControls.current.setLookAt(0, 1.9, 3.2, 0, 1.62, 0, true);
       }
     }
   }, [cameraZoomed]);
@@ -68,7 +68,7 @@ export const Experience = () => {
       <Suspense>
         <Dots position-y={1.75} position-x={-0.02} />
       </Suspense>
-      <group position-y={-1}>
+      <group position-y={0.08}>
         <Avatar />
       </group>
       <ContactShadows opacity={0.7} />
