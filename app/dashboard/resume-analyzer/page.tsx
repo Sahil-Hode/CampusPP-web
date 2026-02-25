@@ -106,9 +106,8 @@ const isRetryableUploadFieldError = (err: unknown) => {
   if (typeof payload.statusCode === "number" && payload.statusCode >= 500) {
     return true;
   }
-  const text = `${payload.message || ""} ${payload.error || ""} ${
-    payload.details || ""
-  }`.toLowerCase();
+  const text = `${payload.message || ""} ${payload.error || ""} ${payload.details || ""
+    }`.toLowerCase();
   return /unexpected field|no file|req\.file|reading 'buffer'|reading "buffer"|internal server error/i.test(text);
 };
 
@@ -194,9 +193,7 @@ export default function ResumeAnalyzer() {
   const fetchHistory = useCallback(async () => {
     try {
       setLoadingHistory(true);
-      const res = await apiRequest("/resume", { method: "GET" }) as {
-        data?: { analyses?: AnalysisItem[] };
-      };
+      const res: any = await apiRequest("/resume", { method: "GET" });
       const list = Array.isArray(res.data?.analyses) ? res.data.analyses : [];
       setAnalyses(list);
       if (list.length > 0 && !selectedAnalysis) {
@@ -249,7 +246,7 @@ export default function ResumeAnalyzer() {
         return await apiRequest("/resume/analyze", {
           method: "POST",
           body: formData,
-        });
+        }) as any;
       };
 
       const uploadFieldCandidates = [
@@ -318,16 +315,7 @@ export default function ResumeAnalyzer() {
 
     try {
       setSelectedAnalysis(item);
-      const res = await apiRequest(`/resume/${item._id}`, { method: "GET" }) as {
-        data?: {
-          analysis?: {
-            createdAt?: string;
-            processedAt?: string;
-            summary?: AnalysisItem["summary"];
-            analysis?: APIAnalysisDetail;
-          };
-        };
-      };
+      const res: any = await apiRequest(`/resume/${item._id}`, { method: "GET" });
       const fullData = res.data?.analysis;
 
       if (fullData) {

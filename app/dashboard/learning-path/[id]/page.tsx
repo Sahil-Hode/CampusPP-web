@@ -47,7 +47,7 @@ export default function LearningPathDetail() {
     async function fetchPathDetail() {
         try {
             setLoading(true);
-            const res = await apiRequest(`/learning/${id}`, { method: "GET" });
+            const res: any = await apiRequest(`/learning/${id}`, { method: "GET" });
             const data = res.data || res;
 
             // Normalize 'courses' or 'path' to 'courses'
