@@ -34,9 +34,10 @@ interface ChatContextType {
     isMicOn: boolean;
     setIsMicOn: (on: boolean) => void;
     liveText: string;
+    backendOnline: boolean | null;
 }
 
-const ChatContext = createContext<ChatContextType | undefined>(undefined);
+export const ChatContext = createContext<ChatContextType | undefined>(undefined);
 
 export const ChatProvider = ({ children }: { children: ReactNode }) => {
     const [message, setMessage] = useState<Message | null>(null);
@@ -44,6 +45,7 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
     const [cameraZoomed, setCameraZoomed] = useState(false);
     const [isMicOn, setIsMicOn] = useState(false);
     const [liveText, setLiveText] = useState("");
+    const [backendOnline, setBackendOnline] = useState<boolean | null>(null);
 
     const recognitionRef = useRef<any>(null);
 
@@ -100,7 +102,21 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
         setLoading(true);
         setLiveText("");
 
-        const backendUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000";
+        const backendUrl = process.env.NEXT_PUBLIC_API_URL;
+
+        if (!backendUrl) {
+            setBackendOnline(false);
+            setMessage({
+                text: `I'm your AI Mentor. You asked: "${text}"`,
+                audio: "",
+                animation: "Talking_1",
+                facialExpression: "smile",
+                lipsync: null,
+                isDemoMode: true,
+            });
+            setLoading(false);
+            return;
+        }
 
         try {
             const response = await fetch(`${backendUrl}/chat`, {
@@ -112,11 +128,13 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
             if (response.ok) {
                 const data = await response.json();
                 setMessage(data);
+                setBackendOnline(true);
             } else {
                 throw new Error("Backend offline");
             }
         } catch (error) {
             console.warn("Using demo mode because backend is unreachable:", error);
+            setBackendOnline(false);
             setMessage({
                 text: `I'm your AI Mentor. You asked: "${text}"`,
                 audio: "",
@@ -146,6 +164,7 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
                 isMicOn,
                 setIsMicOn,
                 liveText,
+                backendOnline,
             }}
         >
             {children}

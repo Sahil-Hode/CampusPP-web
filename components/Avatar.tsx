@@ -122,6 +122,16 @@ export function Avatar(props: any) {
   const talking2FBX = useFBX("/animations/Talking_2.fbx");
   const terrifiedFBX = useFBX("/animations/Terrified.fbx");
 
+  const sceneNodeNames = useMemo(() => {
+    const names = new Set<string>();
+    scene.traverse((child: any) => {
+      if (child.name) {
+        names.add(child.name);
+      }
+    });
+    return names;
+  }, [scene]);
+
   const animations = useMemo(() => {
     const anims = [
       { fbx: angryFBX, name: "Angry" },
@@ -138,13 +148,19 @@ export function Avatar(props: any) {
     return anims.map((item) => {
       const anim = item.fbx.animations[0];
       anim.name = item.name;
-      // Retargeting: Strip mixamorig prefix if present
-      anim.tracks.forEach((track) => {
-        track.name = track.name.replace("mixamorig", "");
-      });
+      // Retargeting: strip mixamorig prefix and drop tracks that target missing nodes.
+      anim.tracks = anim.tracks
+        .map((track) => {
+          track.name = track.name.replace("mixamorig", "");
+          return track;
+        })
+        .filter((track) => {
+          const targetNode = track.name.split(".")[0];
+          return sceneNodeNames.has(targetNode);
+        });
       return anim;
     });
-  }, [angryFBX, cryingFBX, laughingFBX, rumbaFBX, idleFBX, talking0FBX, talking1FBX, talking2FBX, terrifiedFBX]);
+  }, [angryFBX, cryingFBX, laughingFBX, rumbaFBX, idleFBX, talking0FBX, talking1FBX, talking2FBX, terrifiedFBX, sceneNodeNames]);
 
   const group = useRef<THREE.Group>(null);
   const { actions } = useAnimations(animations, group);

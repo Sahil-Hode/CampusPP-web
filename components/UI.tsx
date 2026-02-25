@@ -1,7 +1,7 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
+import { useRef } from "react";
 import { useChat } from "../hooks/useChat";
-import { Mic, MicOff, Send, Maximize, Minimize, Video, VideoOff, RefreshCw } from "lucide-react";
+import { Mic, MicOff, Send, Maximize, Minimize, Video, RefreshCw } from "lucide-react";
 
 interface UIProps {
   hidden?: boolean;
@@ -9,22 +9,7 @@ interface UIProps {
 
 export const UI = ({ hidden }: UIProps) => {
   const input = useRef<HTMLInputElement>(null);
-  const { chat, loading, cameraZoomed, setCameraZoomed, message, isMicOn, setIsMicOn, liveText } = useChat();
-  const [isOnline, setIsOnline] = useState<boolean | null>(null);
-
-  useEffect(() => {
-    const backendUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000";
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 3000);
-
-    fetch(`${backendUrl}/chat`, {
-      method: "OPTIONS",
-      signal: controller.signal,
-    })
-      .then(() => setIsOnline(true))
-      .catch(() => setIsOnline(false))
-      .finally(() => clearTimeout(timer));
-  }, []);
+  const { chat, loading, cameraZoomed, setCameraZoomed, message, isMicOn, setIsMicOn, liveText, backendOnline } = useChat();
 
   const sendMessage = () => {
     if (input.current) {
@@ -50,11 +35,11 @@ export const UI = ({ hidden }: UIProps) => {
         </div>
 
         <div className="flex flex-col gap-2 items-end">
-          <div className={`backdrop-blur-xl px-4 py-2 rounded-full text-xs font-bold shadow-xl flex items-center gap-2 border border-white/20 ${isOnline === null ? "bg-gray-200/50 text-gray-500" : isOnline ? "bg-emerald-500/20 text-emerald-600" : "bg-amber-500/20 text-amber-600"
+          <div className={`backdrop-blur-xl px-4 py-2 rounded-full text-xs font-bold shadow-xl flex items-center gap-2 border border-white/20 ${backendOnline === null ? "bg-gray-200/50 text-gray-500" : backendOnline ? "bg-emerald-500/20 text-emerald-600" : "bg-amber-500/20 text-amber-600"
             }`}>
-            <span className={`w-2 h-2 rounded-full animate-pulse ${isOnline === null ? "bg-gray-400" : isOnline ? "bg-emerald-500" : "bg-amber-500"
+            <span className={`w-2 h-2 rounded-full animate-pulse ${backendOnline === null ? "bg-gray-400" : backendOnline ? "bg-emerald-500" : "bg-amber-500"
               }`} />
-            {isOnline === null ? "CONNECTING..." : isOnline ? "LIVE AI MODE" : "DEMO MODE"}
+            {backendOnline === null ? "READY" : backendOnline ? "LIVE AI MODE" : "DEMO MODE"}
           </div>
         </div>
       </div>
@@ -112,7 +97,7 @@ export const UI = ({ hidden }: UIProps) => {
             <input
               id="chat-input"
               className="w-full placeholder:text-zinc-500 p-5 pr-14 rounded-[2rem] bg-white/70 dark:bg-zinc-900/70 backdrop-blur-2xl shadow-2xl border border-white/30 outline-none focus:ring-4 focus:ring-indigo-500/20 transition-all text-zinc-800 dark:text-white font-medium"
-              placeholder={isOnline === false ? "Type a message... (Demo Mode)" : "Ask your AI Mentor anything..."}
+              placeholder={backendOnline === false ? "Type a message... (Demo Mode)" : "Ask your AI Mentor anything..."}
               ref={input}
               onKeyDown={(e) => {
                 if (e.key === "Enter") sendMessage();

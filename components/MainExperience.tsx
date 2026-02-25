@@ -4,11 +4,13 @@ import { Canvas } from "@react-three/fiber";
 import { Leva } from "leva";
 import { Experience } from "./Experience";
 import { UI } from "./UI";
-import { ChatProvider } from "../hooks/useChat";
+import { ChatContext, ChatProvider, useChat } from "../hooks/useChat";
 
-export default function MainExperience() {
+function ExperienceCanvas() {
+    const chatContextValue = useChat();
+
     return (
-        <ChatProvider>
+        <>
             <Loader />
             <Leva hidden />
             <UI />
@@ -18,12 +20,28 @@ export default function MainExperience() {
                 gl={{
                     antialias: false,
                     powerPreference: "high-performance",
-                    preserveDrawingBuffer: true
+                    preserveDrawingBuffer: false
                 }}
-                dpr={[1, 2]} // Limit pixel ratio for performance
+                dpr={[1, 1.5]}
+                onCreated={({ gl }) => {
+                    gl.domElement.addEventListener("webglcontextlost", (event) => {
+                        event.preventDefault();
+                        console.error("WebGL context lost");
+                    });
+                }}
             >
-                <Experience />
+                <ChatContext.Provider value={chatContextValue}>
+                    <Experience />
+                </ChatContext.Provider>
             </Canvas>
+        </>
+    );
+}
+
+export default function MainExperience() {
+    return (
+        <ChatProvider>
+            <ExperienceCanvas />
         </ChatProvider>
     );
 }
