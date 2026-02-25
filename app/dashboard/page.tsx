@@ -25,7 +25,7 @@ const Card = ({ children, className = "", variant = "default" }: { children: Rea
     blue: "bg-[#61C6EA]/14 dark:bg-[#61C6EA]/14"
   };
   const bg = variants[variant as keyof typeof variants] || variants.default;
-  
+
   return (
     <div className={`${bg} ${BORDER} ${HOVER} rounded-[2rem] p-6 ${className}`}>
       {children}
@@ -320,7 +320,7 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-8 pb-12 text-[#0D1833] dark:text-white transition-colors duration-300 bg-[radial-gradient(circle_at_top,rgba(97,198,234,0.12),rgba(183,164,234,0.08)_38%,rgba(255,255,255,0)_72%)]">
-      
+
       {/* HEADER */}
       <header className="flex flex-col md:flex-row md:items-end justify-between gap-6">
         <div className="space-y-2">
@@ -567,11 +567,11 @@ export default function DashboardPage() {
             {data.intervention?.map((item, idx) => (
               <div key={item.id} className={`flex flex-col md:flex-row md:items-center justify-between p-5 ${BORDER} bg-[#F7FAFD] dark:bg-zinc-800/40 rounded-[24px]`}>
                 <div className="flex items-center gap-5">
-                   <span className="font-[1000] text-3xl opacity-10">0{idx + 1}</span>
-                   <div>
-                      <p className="text-[10px] font-black uppercase text-[#8799B5]">Issue</p>
-                      <p className="font-black text-lg">{item.issue}</p>
-                   </div>
+                  <span className="font-[1000] text-3xl opacity-10">0{idx + 1}</span>
+                  <div>
+                    <p className="text-[10px] font-black uppercase text-[#8799B5]">Issue</p>
+                    <p className="font-black text-lg">{item.issue}</p>
+                  </div>
                 </div>
                 <div className={`mt-3 md:mt-0 px-4 py-2 rounded-xl ${BORDER} text-xs font-black uppercase bg-white dark:bg-zinc-900`}>
                   {item.status}

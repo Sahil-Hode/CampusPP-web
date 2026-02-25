@@ -73,7 +73,7 @@ export default function LearningPathDetail() {
     const fetchPathDetail = useCallback(async () => {
         try {
             setLoading(true);
-            const res = (await apiRequest(`/learning/${id}`, { method: "GET" })) as ApiResponse<LearningPathApiData>;
+            const res: any = await apiRequest(`/learning/${id}`, { method: "GET" });
             const data = res.data || res;
             const capturedAt = Date.now();
 

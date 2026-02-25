@@ -46,7 +46,7 @@ export default function LearningPathList() {
   async function fetchPaths() {
     try {
       setLoading(true);
-      const res = await apiRequest("/learning", { method: "GET" });
+      const res: any = await apiRequest("/learning", { method: "GET" });
 
       let data = res.data;
       // Handle various response wrappers
@@ -84,7 +84,7 @@ export default function LearningPathList() {
     setError(null);
 
     try {
-      const res = await apiRequest("/learning/generate", {
+      const res: any = await apiRequest("/learning/generate", {
         method: "POST",
         body: JSON.stringify({
           topic: goal,

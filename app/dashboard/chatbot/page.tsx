@@ -131,13 +131,13 @@ function normalizeHistory(data: unknown): ChatMessage[] {
       const partText =
         Array.isArray(row.parts) && row.parts.length > 0
           ? (row.parts as unknown[])
-              .map((p) =>
-                typeof p === "object" && p !== null && typeof (p as Record<string, unknown>).text === "string"
-                  ? (p as Record<string, unknown>).text
-                  : ""
-              )
-              .join(" ")
-              .trim()
+            .map((p) =>
+              typeof p === "object" && p !== null && typeof (p as Record<string, unknown>).text === "string"
+                ? (p as Record<string, unknown>).text
+                : ""
+            )
+            .join(" ")
+            .trim()
           : "";
 
       const textVal =
@@ -213,7 +213,7 @@ export default function ChatbotPage() {
     setLoading(true);
 
     try {
-      const data = await apiRequest("/mistral-bot/chat", {
+      const data: any = await apiRequest("/mistral-bot/chat", {
         method: "POST",
         body: JSON.stringify({ message: userText, systemPrompt: "You are an AI mentor..." }),
       });
@@ -274,11 +274,10 @@ export default function ChatbotPage() {
         <div className="flex items-center gap-2">
           <button
             onClick={() => setShowHistoryList((prev) => !prev)}
-            className={`h-10 px-3 md:px-4 rounded-xl border text-xs md:text-sm font-bold inline-flex items-center gap-2 transition-colors ${
-              showHistoryList
+            className={`h-10 px-3 md:px-4 rounded-xl border text-xs md:text-sm font-bold inline-flex items-center gap-2 transition-colors ${showHistoryList
                 ? "border-cyan-300 bg-cyan-50 text-cyan-700 dark:border-cyan-700 dark:bg-cyan-950/40 dark:text-cyan-300"
                 : "border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800"
-            }`}
+              }`}
             aria-label="Toggle chat history"
           >
             <History size={14} />
@@ -421,25 +420,25 @@ export default function ChatbotPage() {
           {/* INPUT AREA */}
           <div className="border-t border-slate-200 dark:border-slate-800 p-2.5 sm:p-3">
             <div className="flex items-end gap-2 sm:gap-3">
-            <div className="flex-1">
-              <input
-                className="w-full h-12 md:h-14 px-4 md:px-5 rounded-xl md:rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-900 text-sm md:text-[15px] font-semibold outline-none focus:ring-2 focus:ring-cyan-400/40 focus:border-cyan-400 dark:focus:border-cyan-500"
-                value={message}
-                onChange={(e) => setMessage(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && sendMessage()}
-                placeholder="Type your message..."
-                disabled={showHistoryList}
-              />
+              <div className="flex-1">
+                <input
+                  className="w-full h-12 md:h-14 px-4 md:px-5 rounded-xl md:rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-900 text-sm md:text-[15px] font-semibold outline-none focus:ring-2 focus:ring-cyan-400/40 focus:border-cyan-400 dark:focus:border-cyan-500"
+                  value={message}
+                  onChange={(e) => setMessage(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && sendMessage()}
+                  placeholder="Type your message..."
+                  disabled={showHistoryList}
+                />
+              </div>
+              <button
+                onClick={sendMessage}
+                disabled={!message.trim() || loading || showHistoryList}
+                aria-label="Send message"
+                className="h-12 w-12 md:h-14 md:w-14 shrink-0 rounded-xl md:rounded-2xl bg-slate-900 text-white grid place-items-center hover:bg-slate-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <Send size={18} />
+              </button>
             </div>
-            <button
-              onClick={sendMessage}
-              disabled={!message.trim() || loading || showHistoryList}
-              aria-label="Send message"
-              className="h-12 w-12 md:h-14 md:w-14 shrink-0 rounded-xl md:rounded-2xl bg-slate-900 text-white grid place-items-center hover:bg-slate-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <Send size={18} />
-            </button>
-          </div>
           </div>
         </div>
       </div>
