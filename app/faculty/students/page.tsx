@@ -41,7 +41,7 @@ export default function StudentsPage() {
   useEffect(() => {
     async function fetchStudents() {
       try {
-        const res = await apiRequest("/faculty/students", { method: "GET" });
+        const res: any = await apiRequest("/faculty/students", { method: "GET" });
         setStudents(res.data || []);
         setFilteredStudents(res.data || []);
         setError(null);

@@ -275,7 +275,7 @@ export default function DashboardPage() {
   const fetchQuizScore = async () => {
     try {
       setQuizLoading(prev => ({ ...prev, score: true }));
-      const res = await apiRequest("/quiz/score");
+      const res: any = await apiRequest("/quiz/score");
       const payload = res?.data || res;
       setQuizScore({
         overallScore: toNum(payload.overallScore),
@@ -299,7 +299,7 @@ export default function DashboardPage() {
   const fetchQuizOverview = async () => {
     try {
       setQuizLoading(prev => ({ ...prev, overview: true }));
-      const res = await apiRequest("/quiz/overview");
+      const res: any = await apiRequest("/quiz/overview");
       const payload = res?.data || res;
       setQuizOverview(payload as QuizOverview);
       setQuizError(prev => ({ ...prev, overview: "" }));

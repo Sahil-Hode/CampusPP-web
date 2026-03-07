@@ -38,7 +38,7 @@ export default function FacultyDashboard() {
 
     async function fetchAnalytics() {
       try {
-        const res = await apiRequest("/faculty/dashboard/analytics", { method: "GET" });
+        const res: any = await apiRequest("/faculty/dashboard/analytics", { method: "GET" });
         setStats(res.data);
       } catch (err) {
         setStats({
