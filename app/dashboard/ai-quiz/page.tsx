@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { apiRequest } from "@/lib/api";
@@ -86,6 +86,14 @@ function formatMinutes(totalMinutes?: number) {
 }
 
 export default function AIQuizPage() {
+  return (
+    <Suspense fallback={<div className="flex items-center justify-center min-h-screen"><Loader2 className="animate-spin" size={32} /></div>}>
+      <AIQuizContent />
+    </Suspense>
+  );
+}
+
+function AIQuizContent() {
   const searchParams = useSearchParams();
   const learningPathId = searchParams.get("learningPathId") || "";
   const courseIndexRaw = searchParams.get("courseIndex") || "";
@@ -432,3 +440,4 @@ export default function AIQuizPage() {
     </div>
   );
 }
+
