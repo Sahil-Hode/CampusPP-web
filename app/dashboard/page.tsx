@@ -136,7 +136,7 @@ const toNum = (val: any) => {
   return parseFloat(cleaned) || 0;
 };
 
-async function fetchPerformanceData(endpoint: string) {
+async function fetchPerformanceData(endpoint: string): Promise<any> {
   try {
     const res = await apiRequest(endpoint);
     return res;
