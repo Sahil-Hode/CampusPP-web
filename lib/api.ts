@@ -17,7 +17,7 @@ export async function apiRequest(
   });
 
   const rawText = await res.text();
-  let data: unknown = null;
+  let data: any = null;
   if (rawText) {
     try {
       data = JSON.parse(rawText);
