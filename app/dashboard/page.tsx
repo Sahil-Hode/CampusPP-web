@@ -512,7 +512,7 @@ export default function DashboardPage() {
           </div>
           <div className="h-[280px] w-full">
             <ResponsiveContainer>
-              <AreaChart data={data.trends}>
+              <AreaChart data={data.trends ?? undefined}>
                 <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="#AAB8CC" strokeOpacity={0.35} />
                 <XAxis dataKey="date" tick={{ fontWeight: 900, fontSize: 10, fill: 'currentColor' }} axisLine={false} />
                 <Tooltip content={<CustomTooltip />} />
@@ -528,7 +528,7 @@ export default function DashboardPage() {
           </div>
           <div className="h-[280px] w-full">
             <ResponsiveContainer>
-              <BarChart data={data.scores} layout="vertical">
+              <BarChart data={data.scores ?? undefined} layout="vertical">
                 <XAxis type="number" hide domain={[0, 100]} />
                 <YAxis dataKey="subject" type="category" tick={{ fontWeight: 900, fontSize: 10, fill: 'currentColor' }} width={90} axisLine={false} tickLine={false} />
                 <Tooltip content={<CustomTooltip />} />
