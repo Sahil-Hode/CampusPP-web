@@ -2,12 +2,12 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { 
-  LayoutDashboard, 
-  FileUp, 
-  Users, 
-  GraduationCap, 
-  X, 
+import {
+  LayoutDashboard,
+  FileUp,
+  Users,
+  GraduationCap,
+  X,
   ChevronRight,
   LogOut,
   UserCircle,
@@ -41,7 +41,7 @@ export default function FacultySidebar({ isOpen, setIsOpen }: SidebarProps) {
       {/* MOBILE OVERLAY */}
       <AnimatePresence>
         {isOpen && (
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -61,7 +61,7 @@ export default function FacultySidebar({ isOpen, setIsOpen }: SidebarProps) {
         ${isOpen ? "translate-x-0" : "-translate-x-full"}
         flex flex-col p-6
       `}>
-        
+
         {/* BRAND LOGO */}
         <div className="flex items-center justify-between mb-10 px-2 shrink-0">
           <div className="flex items-center gap-3">
@@ -69,7 +69,7 @@ export default function FacultySidebar({ isOpen, setIsOpen }: SidebarProps) {
               <GraduationCap className="text-white w-5 h-5" strokeWidth={2.5} />
             </div>
             <span className="font-[1000] tracking-tighter text-slate-800 dark:text-white text-xl uppercase">
-              Jnexia
+              Campus++
             </span>
           </div>
           <button onClick={() => setIsOpen(false)} className="lg:hidden p-2 text-slate-400">
@@ -82,15 +82,15 @@ export default function FacultySidebar({ isOpen, setIsOpen }: SidebarProps) {
           <p className="text-[10px] font-[900] text-slate-400 uppercase tracking-[0.25em] mb-4 px-4">
             Main Menu
           </p>
-          
+
           {menuItems.map((item) => {
             const isActive = pathname === item.href;
             return (
               <Link key={item.name} href={item.href} onClick={() => setIsOpen(false)}>
                 <div className={`
                   group flex items-center justify-between px-4 py-4 rounded-[1.5rem] transition-all duration-300 mb-1
-                  ${isActive 
-                    ? "bg-white dark:bg-zinc-900 shadow-md border-2 border-slate-100 dark:border-zinc-800" 
+                  ${isActive
+                    ? "bg-white dark:bg-zinc-900 shadow-md border-2 border-slate-100 dark:border-zinc-800"
                     : "hover:bg-white/50 dark:hover:bg-zinc-900/50"}
                 `}>
                   <div className="flex items-center gap-4">
@@ -126,7 +126,7 @@ export default function FacultySidebar({ isOpen, setIsOpen }: SidebarProps) {
 
         {/* SIGN OUT */}
         <div className="shrink-0">
-          <button 
+          <button
             onClick={handleSignOut}
             className="group w-full flex items-center gap-4 p-4 rounded-[1.5rem] bg-slate-900 dark:bg-white text-white dark:text-slate-900 font-black text-[10px] uppercase tracking-widest shadow-lg active:scale-95 transition-all"
           >

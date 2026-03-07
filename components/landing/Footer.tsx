@@ -20,7 +20,7 @@ export default function Footer() {
                 <GraduationCap className="text-white w-6 h-6" strokeWidth={2.5} />
               </div>
               <span className="font-black tracking-tighter text-slate-800 text-2xl uppercase">
-                Jnexia
+                Campus++
               </span>
             </div>
             <p className="max-w-xs text-[13px] font-bold text-slate-400 leading-relaxed uppercase tracking-wider">
@@ -67,7 +67,7 @@ export default function Footer() {
                   Have a question or need assistance?
                 </p>
                 <a
-                  href="mailto:support@jnexia.com"
+                  href="mailto:support@campuspp.com"
                   className="flex items-center gap-2 text-[10px] font-black text-[#63D2F3] uppercase tracking-widest hover:underline"
                 >
                   <Mail size={14} />
@@ -82,7 +82,7 @@ export default function Footer() {
         <div className="pt-10 border-t border-slate-200/50 flex flex-col md:flex-row justify-between items-center gap-6">
           <div className="flex items-center gap-4">
             <p className="text-[10px] font-black text-slate-300 uppercase tracking-[0.4em]">
-              © 2026 Jnexia Core
+              © 2026 Campus++ Core
             </p>
             <div className="h-1 w-1 bg-slate-200 rounded-full" />
             <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest">

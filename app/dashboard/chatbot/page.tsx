@@ -13,7 +13,7 @@ type ChatMessage = {
 
 const DEFAULT_GREETING: ChatMessage = {
   role: "ai",
-  text: "Hello! I’m your Jnexia AI Trainer — here to guide you through learning, career planning, and problem-solving.How can I assist you today?",
+  text: "Hello! I'm your Campus++ AI Trainer — here to guide you through learning, career planning, and problem-solving.How can I assist you today?",
 };
 
 function getHistoryRouteId() {
@@ -275,8 +275,8 @@ export default function ChatbotPage() {
           <button
             onClick={() => setShowHistoryList((prev) => !prev)}
             className={`h-10 px-3 md:px-4 rounded-xl border text-xs md:text-sm font-bold inline-flex items-center gap-2 transition-colors ${showHistoryList
-                ? "border-cyan-300 bg-cyan-50 text-cyan-700 dark:border-cyan-700 dark:bg-cyan-950/40 dark:text-cyan-300"
-                : "border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800"
+              ? "border-cyan-300 bg-cyan-50 text-cyan-700 dark:border-cyan-700 dark:bg-cyan-950/40 dark:text-cyan-300"
+              : "border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800"
               }`}
             aria-label="Toggle chat history"
           >

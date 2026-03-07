@@ -15,7 +15,7 @@ interface RiskConfig {
 }
 
 export default function RiskBadge({ level }: RiskBadgeProps) {
-  // Define styles based on Jnexia's premium palette
+  // Define styles based on Campus++'s premium palette
   const config: Record<string, RiskConfig> = {
     High: {
       bg: "bg-red-500/10",

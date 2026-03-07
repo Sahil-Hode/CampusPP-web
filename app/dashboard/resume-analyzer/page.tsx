@@ -24,7 +24,7 @@ import { apiRequest } from "@/lib/api";
 /**
  * 
  * PROFESSIONAL RESUME ANALYZER MODULE
- * Built for Jnexia Platform
+ * Built for Campus++ Platform
  * Senior AI Engineer & UX Designer Edition
  * 
  */

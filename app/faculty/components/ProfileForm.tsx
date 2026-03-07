@@ -9,7 +9,7 @@ import {
 export default function FacultyProfile() {
   const [profile, setProfile] = useState({
     name: "Faculty Member",
-    email: "faculty@jnexia.edu",
+    email: "faculty@campuspp.edu",
     department: "Computer Science & Engineering",
     designation: "Senior Lecturer",
     cabin: "A-402, Tech Block"

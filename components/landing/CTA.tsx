@@ -11,7 +11,7 @@ export default function CTA() {
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[300px] bg-[#63D2F3]/10 blur-[120px] rounded-full pointer-events-none" />
 
       <div className="max-w-5xl mx-auto px-6 relative z-10">
-        <motion.div 
+        <motion.div
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
@@ -27,11 +27,11 @@ export default function CTA() {
 
           <h2 className="text-5xl md:text-7xl font-black text-slate-900 tracking-tighter mb-8 leading-[0.9]">
             Access the <br />
-            <span className="text-[#63D2F3]">Jnexia Portal.</span>
+            <span className="text-[#63D2F3]">Campus++ Portal.</span>
           </h2>
 
           <p className="mt-6 text-slate-400 font-bold text-lg md:text-xl max-w-2xl mx-auto leading-relaxed">
-            Whether you are a student forging your path or an institute managing excellence, 
+            Whether you are a student forging your path or an institute managing excellence,
             everything you need is one click away.
           </p>
 

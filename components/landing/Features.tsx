@@ -71,7 +71,7 @@ export default function Features() {
           </h2>
 
           <p className="text-slate-400 font-bold text-lg max-w-2xl mx-auto leading-relaxed">
-            Jnexia isn&apos;t just a platform; it&apos;s a high-performance engine designed to
+            Campus++ isn&apos;t just a platform; it&apos;s a high-performance engine designed to
             propel your career into the future.
           </p>
         </div>
