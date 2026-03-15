@@ -1,8 +1,9 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import RiskBadge from "./RiskBadge";
-import { ChevronRight, User, BrainCircuit } from "lucide-react";
+import { ChevronRight, User, BrainCircuit, MessageCircleMore, X } from "lucide-react";
 import { motion } from "framer-motion";
 
 type Student = {
@@ -28,9 +29,36 @@ type Student = {
 interface StudentTableProps {
   students: Student[];
   loading: boolean;
+  onSendNote: (studentId: string, note: string) => Promise<unknown>;
 }
 
-export default function StudentTable({ students, loading }: StudentTableProps) {
+export default function StudentTable({ students, loading, onSendNote }: StudentTableProps) {
+  const [noteStudent, setNoteStudent] = useState<Student | null>(null);
+  const [note, setNote] = useState("");
+  const [sending, setSending] = useState(false);
+
+  const submitNote = async () => {
+    if (!noteStudent) return;
+    const clean = note.trim();
+    if (clean.length < 2 || clean.length > 1000) {
+      alert("Note must be between 2 and 1000 characters.");
+      return;
+    }
+
+    try {
+      setSending(true);
+      await onSendNote(noteStudent.studentId, clean);
+      alert("Faculty annotation sent successfully.");
+      setNote("");
+      setNoteStudent(null);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : "Failed to send note";
+      alert(message);
+    } finally {
+      setSending(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="w-full bg-white dark:bg-zinc-900 rounded-[2.5rem] border-2 border-slate-50 dark:border-zinc-800 shadow-sm p-8">
@@ -52,7 +80,8 @@ export default function StudentTable({ students, loading }: StudentTableProps) {
   }
 
   return (
-    <div className="w-full bg-white dark:bg-zinc-900 rounded-[2.5rem] border-2 border-slate-50 dark:border-zinc-800 shadow-sm overflow-hidden">
+    <>
+      <div className="w-full bg-white dark:bg-zinc-900 rounded-[2.5rem] border-2 border-slate-50 dark:border-zinc-800 shadow-sm overflow-hidden">
       <div className="overflow-x-auto">
         <table className="w-full border-collapse">
           <thead>
@@ -110,19 +139,87 @@ export default function StudentTable({ students, loading }: StudentTableProps) {
 
                 {/* ACTION BUTTON */}
                 <td className="px-6 py-5 text-right">
-                  <Link href={`/faculty/students/${s.studentId}`}>
+                  <div className="inline-flex items-center gap-2">
+                    {["High", "Medium"].includes(s.performance?.riskLevel || "") && (
+                      <button
+                        onClick={() => {
+                          setNoteStudent(s);
+                          setNote("");
+                        }}
+                        className="inline-flex items-center gap-2 bg-[#63D2F3] text-white px-3 py-2 rounded-xl font-black text-[10px] uppercase tracking-widest hover:brightness-110 transition-all"
+                        title="Send faculty annotation"
+                      >
+                        <MessageCircleMore size={14} />
+                        Chat
+                      </button>
+                    )}
+
+                    <Link href={`/faculty/students/${s.studentId}`}>
                     <button className="inline-flex items-center gap-2 bg-slate-900 dark:bg-white text-white dark:text-slate-900 px-4 py-2 rounded-xl font-black text-[10px] uppercase tracking-widest hover:translate-x-1 transition-all">
                       <BrainCircuit size={14} className="text-[#63D2F3]" />
                       View AI
                       <ChevronRight size={12} strokeWidth={3} />
                     </button>
                   </Link>
+                  </div>
                 </td>
               </motion.tr>
             ))}
           </tbody>
         </table>
       </div>
-    </div>
+      </div>
+
+      {noteStudent && (
+        <div className="fixed inset-0 z-100 bg-black/45 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="w-full max-w-xl bg-white dark:bg-zinc-900 border-2 border-slate-100 dark:border-zinc-800 rounded-4xl p-6 shadow-2xl">
+            <div className="flex items-center justify-between mb-5">
+              <h3 className="text-sm font-black uppercase tracking-widest text-slate-500">
+                Faculty Annotation
+              </h3>
+              <button onClick={() => setNoteStudent(null)} className="p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-zinc-800">
+                <X size={16} />
+              </button>
+            </div>
+
+            <p className="text-sm font-black text-slate-900 dark:text-white tracking-tight mb-1">
+              {noteStudent.name}
+            </p>
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-4">
+              {noteStudent.studentId} • {noteStudent.Course}
+            </p>
+
+            <textarea
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              rows={5}
+              placeholder="Type note for student risk alert..."
+              className="w-full rounded-2xl bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-700 p-4 text-sm font-bold outline-none focus:ring-2 focus:ring-[#63D2F3]"
+            />
+
+            <div className="flex items-center justify-between mt-3">
+              <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider">
+                {note.trim().length}/1000
+              </span>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setNoteStudent(null)}
+                  className="px-4 py-2 rounded-xl border border-slate-200 dark:border-zinc-700 text-[10px] font-black uppercase tracking-widest"
+                >
+                  Cancel
+                </button>
+                <button
+                  disabled={sending}
+                  onClick={submitNote}
+                  className="px-4 py-2 rounded-xl bg-[#63D2F3] text-white text-[10px] font-black uppercase tracking-widest disabled:opacity-60"
+                >
+                  {sending ? "Sending..." : "Send Note"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 }

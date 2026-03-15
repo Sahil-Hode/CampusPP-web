@@ -6,6 +6,8 @@ import { Search, Filter, Users, AlertTriangle } from "lucide-react";
 import { motion } from "framer-motion";
 import { apiRequest } from "@/lib/api";
 
+const PERFORMANCE_API = "https://campuspp-f7qx.onrender.com/api";
+
 type Student = {
   _id: string;
   email: string;
@@ -38,12 +40,80 @@ export default function StudentsPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [riskFilter, setRiskFilter] = useState("all");
 
+  const hydrateWithLatestPerformance = async (baseStudents: Student[]) => {
+    const token = localStorage.getItem("token") || localStorage.getItem("access_token");
+
+    const settled = await Promise.allSettled(
+      baseStudents.map(async (s) => {
+        const res = await fetch(`${PERFORMANCE_API}/student/public/performance/${s.studentId}`, {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+        });
+
+        if (!res.ok) return s;
+        const json = await res.json();
+        const perf = json?.data?.currentPerformance;
+        if (!perf) return s;
+
+        return {
+          ...s,
+          performance: {
+            score: Number(perf.score ?? s.performance?.score ?? 0),
+            riskLevel: (perf.riskLevel || s.performance?.riskLevel || "Low") as "High" | "Medium" | "Low",
+            trend: String(perf.trends || s.performance?.trend || "Stable"),
+            intervention: {
+              required: Boolean(perf.intervention?.required),
+              priority: perf.intervention?.priority,
+            },
+          },
+        } as Student;
+      })
+    );
+
+    return settled.map((r, i) => (r.status === "fulfilled" ? r.value : baseStudents[i]));
+  };
+
+  const sendFacultyNote = async (studentId: string, note: string) => {
+    const token = localStorage.getItem("token") || localStorage.getItem("access_token");
+    const facultyName = localStorage.getItem("user_name") || "Faculty";
+    const role = localStorage.getItem("user_role") || "FACULTY";
+
+    const res = await fetch("/api/faculty-annotations", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        "x-user-name": facultyName,
+        "x-user-role": role,
+      },
+      body: JSON.stringify({
+        studentId,
+        note,
+        metadata: {
+          source: "faculty_dashboard_chat",
+        },
+      }),
+    });
+
+    const json = await res.json();
+    if (!res.ok) {
+      throw new Error(json?.message || "Failed to send annotation");
+    }
+    return json;
+  };
+
   useEffect(() => {
     async function fetchStudents() {
       try {
         const res: any = await apiRequest("/faculty/students", { method: "GET" });
-        setStudents(res.data || []);
-        setFilteredStudents(res.data || []);
+        const rawStudents = res.data || [];
+        const mergedStudents = await hydrateWithLatestPerformance(rawStudents);
+
+        setStudents(mergedStudents);
+        setFilteredStudents(mergedStudents);
         setError(null);
       } catch (err) {
         console.error("Failed to fetch students:", err);
@@ -116,7 +186,7 @@ export default function StudentsPage() {
       <motion.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
-        className="flex flex-col lg:flex-row gap-4 p-4 bg-white dark:bg-zinc-900 rounded-[2rem] border-2 border-slate-50 dark:border-zinc-800 shadow-sm"
+        className="flex flex-col lg:flex-row gap-4 p-4 bg-white dark:bg-zinc-900 rounded-4xl border-2 border-slate-50 dark:border-zinc-800 shadow-sm"
       >
         <div className="relative flex-1">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
@@ -148,7 +218,7 @@ export default function StudentsPage() {
       </motion.div>
 
       {/* 3. QUICK STATS SUMMARY */}
-      <div className="flex flex-wrap gap-8 px-6 py-4 bg-slate-50/50 dark:bg-zinc-900/30 rounded-[1.5rem] border border-dashed border-slate-200 dark:border-zinc-800">
+      <div className="flex flex-wrap gap-8 px-6 py-4 bg-slate-50/50 dark:bg-zinc-900/30 rounded-3xl border border-dashed border-slate-200 dark:border-zinc-800">
         <div className="flex items-center gap-3">
           <Users size={16} className="text-[#63D2F3]" />
           <span className="text-[11px] font-black text-slate-500 uppercase tracking-wider">
@@ -174,7 +244,7 @@ export default function StudentsPage() {
         animate={{ opacity: 1 }}
         transition={{ delay: 0.2 }}
       >
-        <StudentTable students={filteredStudents} loading={loading} />
+        <StudentTable students={filteredStudents} loading={loading} onSendNote={sendFacultyNote} />
       </motion.div>
 
     </div>

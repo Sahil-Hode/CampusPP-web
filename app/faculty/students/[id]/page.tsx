@@ -12,6 +12,7 @@ import {
   User,
   Calendar,
   Target,
+  GraduationCap,
   Zap,
   Shield,
   Activity,
@@ -39,6 +40,14 @@ interface CurrentPerformance {
   riskFactors: string[];
   attendance: number;
   internalMarks: number;
+  subjectMarks?: Record<string, number>;
+  lowSubjectMarks?: Array<{ subject: string; marks: number }>;
+  subjectRecommendations?: Array<{
+    subject: string;
+    currentMarks: number;
+    recommendation: string;
+    focusAreas: string[];
+  }>;
   assignmentScore: number;
   lmsEngagement: number;
   quizScore: number | null;
@@ -460,6 +469,67 @@ export default function StudentDetailPage() {
           </div>
         </Card>
       </div>
+
+      {/* ── TREND ANALYSIS ─────────────────────────────────── */}
+      {(perf.subjectMarks || perf.lowSubjectMarks?.length || perf.subjectRecommendations?.length) && (
+        <Card delay={0.28}>
+          <SectionHeader icon={GraduationCap} title="Subject Intelligence" badge="Weak Subject Recovery" />
+
+          {perf.subjectMarks && (
+            <div className="mb-6">
+              <p className="text-[10px] font-black uppercase tracking-widest text-[#8799B5] mb-3">Subject Marks</p>
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+                {Object.entries(perf.subjectMarks).map(([subject, marks]) => (
+                  <div key={subject} className={`p-4 ${BORDER} rounded-[1.25rem] text-center`}>
+                    <p className="text-[9px] font-black uppercase tracking-widest text-[#8799B5]">{subject}</p>
+                    <p className={`text-2xl font-[1000] mt-1 ${marks < 40 ? "text-[#E96D7C]" : marks < 70 ? "text-[#F5A623]" : "text-emerald-500"}`}>
+                      {marks}
+                    </p>
+                    <p className="text-[9px] font-black uppercase tracking-widest text-[#8799B5]">/100</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {perf.lowSubjectMarks && perf.lowSubjectMarks.length > 0 && (
+            <div className="mb-6">
+              <p className="text-[10px] font-black uppercase tracking-widest text-[#E96D7C] mb-3">Priority Weak Subjects</p>
+              <div className="flex flex-wrap gap-2">
+                {perf.lowSubjectMarks.map((it, idx) => (
+                  <span key={`${it.subject}-${idx}`} className="px-3 py-1.5 rounded-xl bg-[#E96D7C]/10 text-[#E96D7C] text-[10px] font-black uppercase tracking-widest border border-[#E96D7C]/20">
+                    {it.subject}: {it.marks}/100
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {perf.subjectRecommendations && perf.subjectRecommendations.length > 0 && (
+            <div>
+              <p className="text-[10px] font-black uppercase tracking-widest text-[#8799B5] mb-3">Targeted Recommendations</p>
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                {perf.subjectRecommendations.map((rec, idx) => (
+                  <div key={`${rec.subject}-${idx}`} className={`p-5 ${BORDER} rounded-3xl`}>
+                    <div className="flex items-center justify-between mb-2">
+                      <p className="text-sm font-[1000] uppercase tracking-tight">{rec.subject}</p>
+                      <span className="text-[9px] font-black uppercase tracking-widest text-[#E96D7C]">{rec.currentMarks}/100</span>
+                    </div>
+                    <p className="text-xs font-bold text-slate-700 dark:text-slate-300 mb-3">{rec.recommendation}</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {rec.focusAreas?.map((fa) => (
+                        <span key={fa} className="px-2 py-1 rounded-lg bg-[#61C6EA]/10 text-[#61C6EA] text-[9px] font-black uppercase tracking-wider">
+                          {fa}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </Card>
+      )}
 
       {/* ── TREND ANALYSIS ─────────────────────────────────── */}
       {trend && (

@@ -1,9 +1,16 @@
 "use client";
 
 import { Bell, Menu, Moon, Sun, X } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useDashboardTheme } from "../../../components/ThemeProvider";
+
+type NotificationItem = {
+  title: string;
+  text: string;
+  time: string;
+  color: string;
+};
 
 export default function DashboardHeader({
   onOpenSidebar,
@@ -11,25 +18,77 @@ export default function DashboardHeader({
   onOpenSidebar: () => void;
 }) {
   const [open, setOpen] = useState(false);
+  const [notes, setNotes] = useState<NotificationItem[]>([]);
   const { toggleTheme } = useDashboardTheme();
 
-  const notifications = [
-    {
-      title: "Courses",
-      text: "New React module is live",
-      time: "2m ago",
-      color: "text-[#63D2F3]",
-    },
-    {
-      title: "System",
-      text: "Login detected from Chrome",
-      time: "1h ago",
-      color: "text-[#F6AD55]",
-    },
-  ];
+  const relative = (iso?: string) => {
+    if (!iso) return "now";
+    const deltaMs = Date.now() - new Date(iso).getTime();
+    const min = Math.max(1, Math.floor(deltaMs / 60000));
+    if (min < 60) return `${min}m ago`;
+    const hr = Math.floor(min / 60);
+    if (hr < 24) return `${hr}h ago`;
+    return `${Math.floor(hr / 24)}d ago`;
+  };
+
+  useEffect(() => {
+    let active = true;
+    async function fetchFacultyAnnotations() {
+      const studentId = localStorage.getItem("student_id");
+      const token = localStorage.getItem("token") || localStorage.getItem("access_token");
+      if (!studentId || !token) {
+        setNotes([]);
+        return;
+      }
+
+      try {
+        const res = await fetch(`/api/faculty-annotations/student/${studentId}`, {
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          cache: "no-store",
+        });
+        const json = await res.json();
+        if (!res.ok || !json?.success) return;
+
+        const mapped: NotificationItem[] = (json?.data || []).slice(0, 8).map((n: any) => ({
+          title: "Faculty Annotation",
+          text: `${n.facultyName}: ${n.note}`,
+          time: relative(n.timestamp),
+          color: "text-emerald-500",
+        }));
+
+        if (active) setNotes(mapped);
+      } catch {
+        if (active) setNotes([]);
+      }
+    }
+
+    fetchFacultyAnnotations();
+    const id = setInterval(fetchFacultyAnnotations, 20000);
+
+    return () => {
+      active = false;
+      clearInterval(id);
+    };
+  }, []);
+
+  const notifications = useMemo(() => {
+    const fallback = [
+      {
+        title: "System",
+        text: "Your dashboard is active",
+        time: "now",
+        color: "text-[#63D2F3]",
+      },
+    ];
+
+    return notes.length ? notes : fallback;
+  }, [notes]);
 
   return (
-    <header className="sticky top-0 z-[100] bg-[#F8FAFC] dark:bg-zinc-950 transition-colors duration-500 px-3 py-2 md:px-4 md:py-3">
+    <header className="sticky top-0 z-100 bg-[#F8FAFC] dark:bg-zinc-950 transition-colors duration-500 px-3 py-2 md:px-4 md:py-3">
       <div className="flex items-center justify-between lg:justify-end">
         <button
           onClick={onOpenSidebar}
@@ -77,7 +136,7 @@ export default function DashboardHeader({
                   initial={{ opacity: 0, y: 15, scale: 0.95 }}
                   animate={{ opacity: 1, y: 0, scale: 1 }}
                   exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                  className="fixed left-4 right-4 md:absolute md:left-auto md:right-0 mt-4 md:w-80 z-50 bg-white dark:bg-zinc-900 border-2 border-slate-100 dark:border-zinc-800 rounded-[2rem] p-5 shadow-2xl"
+                  className="fixed left-4 right-4 md:absolute md:left-auto md:right-0 mt-4 md:w-80 z-50 bg-white dark:bg-zinc-900 border-2 border-slate-100 dark:border-zinc-800 rounded-4xl p-5 shadow-2xl"
                 >
                   <div className="flex items-center justify-between mb-4 px-1">
                     <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
