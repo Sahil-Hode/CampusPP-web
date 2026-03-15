@@ -1,50 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import {
-  addFacultyAnnotation,
-  buildAlertId,
-  listFacultyAnnotations,
-  saveStudentProfile,
-  saveStudentRisk,
-} from "@/lib/facultyAnnotationsStore";
-
-const PERFORMANCE_API = "https://campuspp-f7qx.onrender.com/api";
-
-function getFacultyName(req: NextRequest) {
-  return req.headers.get("x-user-name") || "Faculty";
-}
-
-async function resolveRisk(studentId: string, authHeader?: string | null) {
-  const res = await fetch(`${PERFORMANCE_API}/student/public/performance/${studentId}`, {
-    headers: {
-      "Content-Type": "application/json",
-      ...(authHeader ? { Authorization: authHeader } : {}),
-    },
-    cache: "no-store",
-  });
-
-  if (!res.ok) return null;
-  const json = await res.json();
-  const d = json?.data;
-  const perf = d?.currentPerformance;
-  if (!d || !perf) return null;
-
-  saveStudentProfile({
-    studentId: d.studentId || studentId,
-    name: d.studentName || studentId,
-  });
-
-  saveStudentRisk(studentId, {
-    finalRisk: perf?.predictiveIntelligence?.academicStability?.finalRisk ?? 0,
-    score: perf?.score ?? 0,
-    riskLevel: perf?.riskLevel ?? "Low",
-    trend: perf?.trends ?? "Stable",
-    recommendations: perf?.recommendations ?? [],
-    concerns: perf?.concerns ?? [],
-    strengths: perf?.strengths ?? [],
-  });
-
-  return perf;
-}
+import { proxyFacultyAnnotations } from "@/lib/facultyAnnotationsApi";
 
 export async function POST(req: NextRequest) {
   try {
@@ -60,33 +15,20 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const auth = req.headers.get("authorization");
-    // resolveRisk is best-effort — failure does not block the annotation
-    const resolvedPerf = await resolveRisk(studentId, auth).catch(() => null);
-
-    const resolvedFromBackend = Boolean(resolvedPerf);
-    const alertId = String(
-      body?.alertId ||
-      buildAlertId(studentId, resolvedPerf?.riskLevel || "Low", resolvedPerf?.isAtRisk)
-    );
-
-    const created = addFacultyAnnotation({
+    const payload = {
+      ...body,
       studentId,
-      alertId,
-      resolvedFromBackend,
-      facultyName: getFacultyName(req),
       note,
       metadata,
+      facultyName: String(body?.facultyName || req.headers.get("x-user-name") || "Faculty").trim(),
+    };
+
+    const result = await proxyFacultyAnnotations(req, "/faculty-annotations", {
+      method: "POST",
+      body: JSON.stringify(payload),
     });
 
-    return NextResponse.json(
-      {
-        success: true,
-        message: "Faculty annotation added successfully",
-        data: created,
-      },
-      { status: 201 }
-    );
+    return NextResponse.json(result.payload, { status: result.status });
   } catch (error) {
     console.error("[faculty-annotations][POST]", error);
     return NextResponse.json(
@@ -100,9 +42,6 @@ export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
     const studentId = (searchParams.get("studentId") || "").trim();
-    const alertId = (searchParams.get("alertId") || "").trim() || undefined;
-    const page = Number(searchParams.get("page") || 1);
-    const limit = Number(searchParams.get("limit") || 20);
 
     if (!studentId) {
       return NextResponse.json(
@@ -111,12 +50,16 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    const { data, pagination } = listFacultyAnnotations({ studentId, alertId, page, limit });
+    const result = await proxyFacultyAnnotations(
+      req,
+      `/faculty-annotations?${searchParams.toString()}`,
+      {
+        method: "GET",
+      }
+    );
 
-    return NextResponse.json({
-      success: true,
-      data,
-      pagination,
+    return NextResponse.json(result.payload, {
+      status: result.status,
     });
   } catch (error) {
     console.error("[faculty-annotations][GET]", error);

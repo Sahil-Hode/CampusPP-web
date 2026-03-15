@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAlertThread } from "@/lib/facultyAnnotationsStore";
+import { proxyFacultyAnnotations } from "@/lib/facultyAnnotationsApi";
 
 function hasAccess(req: NextRequest) {
   return Boolean(req.headers.get("authorization"));
@@ -27,19 +27,16 @@ export async function GET(
     }
 
     const { alertId } = await params;
-    const thread = getAlertThread(studentId, alertId).map((n) => ({
-      facultyName: n.facultyName,
-      note: n.note,
-      timestamp: n.timestamp,
-    }));
+    const result = await proxyFacultyAnnotations(
+      req,
+      `/faculty-annotations/alerts/${encodeURIComponent(alertId)}/notes?studentId=${encodeURIComponent(studentId)}`,
+      {
+        method: "GET",
+      }
+    );
 
-    return NextResponse.json({
-      success: true,
-      data: {
-        studentId,
-        alertId,
-        notes: thread,
-      },
+    return NextResponse.json(result.payload, {
+      status: result.status,
     });
   } catch (error) {
     console.error("[faculty-annotations][alert-thread]", error);

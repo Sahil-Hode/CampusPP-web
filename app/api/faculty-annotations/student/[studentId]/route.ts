@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getStudentNotes } from "@/lib/facultyAnnotationsStore";
+import { proxyFacultyAnnotations } from "@/lib/facultyAnnotationsApi";
 
 function hasAccess(req: NextRequest) {
   return Boolean(req.headers.get("authorization"));
@@ -26,20 +26,15 @@ export async function GET(
       );
     }
 
-    const all = getStudentNotes(id);
+    const result = await proxyFacultyAnnotations(
+      req,
+      `/faculty-annotations/student/${encodeURIComponent(id)}`,
+      {
+        method: "GET",
+      }
+    );
 
-    return NextResponse.json({
-      success: true,
-      count: all.length,
-      data: all.map((n) => ({
-        _id: n._id,
-        facultyName: n.facultyName,
-        alertId: n.alertId,
-        note: n.note,
-        timestamp: n.timestamp,
-        type: "faculty_annotation",
-      })),
-    });
+    return NextResponse.json(result.payload, { status: result.status });
   } catch (error) {
     console.error("[faculty-annotations][student-notes]", error);
     return NextResponse.json(
