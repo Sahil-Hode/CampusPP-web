@@ -79,7 +79,6 @@ export default function StudentsPage() {
   const sendFacultyNote = async (studentId: string, note: string) => {
     const token = localStorage.getItem("token") || localStorage.getItem("access_token");
     const facultyName = localStorage.getItem("user_name") || "Faculty";
-    const role = localStorage.getItem("user_role") || "FACULTY";
 
     const res = await fetch("/api/faculty-annotations", {
       method: "POST",
@@ -87,7 +86,7 @@ export default function StudentsPage() {
         "Content-Type": "application/json",
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
         "x-user-name": facultyName,
-        "x-user-role": role,
+        "x-user-role": "FACULTY", // hardcoded – this route is only called from the faculty portal
       },
       body: JSON.stringify({
         studentId,

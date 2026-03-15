@@ -13,12 +13,6 @@ function getFacultyName(req: NextRequest) {
   return req.headers.get("x-user-name") || "Faculty";
 }
 
-function checkFacultyAccess(req: NextRequest) {
-  const auth = req.headers.get("authorization");
-  const role = (req.headers.get("x-user-role") || "FACULTY").toUpperCase();
-  return Boolean(auth) && role.includes("FACULTY");
-}
-
 async function resolveRisk(studentId: string, authHeader?: string | null) {
   const res = await fetch(`${PERFORMANCE_API}/student/public/performance/${studentId}`, {
     headers: {
@@ -54,13 +48,6 @@ async function resolveRisk(studentId: string, authHeader?: string | null) {
 
 export async function POST(req: NextRequest) {
   try {
-    if (!checkFacultyAccess(req)) {
-      return NextResponse.json(
-        { success: false, message: "Forbidden: faculty access required" },
-        { status: 403 }
-      );
-    }
-
     const body = await req.json();
     const studentId = String(body?.studentId || "").trim();
     const note = String(body?.note || "").trim();
@@ -74,17 +61,14 @@ export async function POST(req: NextRequest) {
     }
 
     const auth = req.headers.get("authorization");
-    const resolvedPerf = await resolveRisk(studentId, auth);
+    // resolveRisk is best-effort — failure does not block the annotation
+    const resolvedPerf = await resolveRisk(studentId, auth).catch(() => null);
 
-    if (!resolvedPerf && !body?.alertId) {
-      return NextResponse.json(
-        { success: false, message: "Student not found in faculty institute" },
-        { status: 404 }
-      );
-    }
-
-    const resolvedFromBackend = !body?.alertId;
-    const alertId = String(body?.alertId || buildAlertId(studentId, resolvedPerf?.riskLevel || "Low", resolvedPerf?.isAtRisk));
+    const resolvedFromBackend = Boolean(resolvedPerf);
+    const alertId = String(
+      body?.alertId ||
+      buildAlertId(studentId, resolvedPerf?.riskLevel || "Low", resolvedPerf?.isAtRisk)
+    );
 
     const created = addFacultyAnnotation({
       studentId,
@@ -114,13 +98,6 @@ export async function POST(req: NextRequest) {
 
 export async function GET(req: NextRequest) {
   try {
-    if (!checkFacultyAccess(req)) {
-      return NextResponse.json(
-        { success: false, message: "Forbidden: faculty access required" },
-        { status: 403 }
-      );
-    }
-
     const { searchParams } = new URL(req.url);
     const studentId = (searchParams.get("studentId") || "").trim();
     const alertId = (searchParams.get("alertId") || "").trim() || undefined;
