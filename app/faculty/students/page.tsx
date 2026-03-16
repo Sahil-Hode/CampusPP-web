@@ -101,7 +101,15 @@ export default function StudentsPage() {
     if (!res.ok) {
       throw new Error(json?.message || "Failed to send annotation");
     }
-    return json;
+
+    const notificationSent = json?.notification?.attempted
+      ? Boolean(json?.notification?.sent)
+      : undefined;
+
+    return {
+      notificationSent,
+      notificationMessage: json?.notification?.message,
+    };
   };
 
   useEffect(() => {

@@ -29,7 +29,7 @@ type Student = {
 interface StudentTableProps {
   students: Student[];
   loading: boolean;
-  onSendNote: (studentId: string, note: string) => Promise<unknown>;
+  onSendNote: (studentId: string, note: string) => Promise<{ notificationSent?: boolean; notificationMessage?: string }>;
 }
 
 export default function StudentTable({ students, loading, onSendNote }: StudentTableProps) {
@@ -47,8 +47,12 @@ export default function StudentTable({ students, loading, onSendNote }: StudentT
 
     try {
       setSending(true);
-      await onSendNote(noteStudent.studentId, clean);
-      alert("Faculty annotation sent successfully.");
+      const result = await onSendNote(noteStudent.studentId, clean);
+      if (result?.notificationSent === false) {
+        alert(`Annotation sent, but push notification failed${result.notificationMessage ? `: ${result.notificationMessage}` : "."}`);
+      } else {
+        alert("Faculty annotation and notification sent successfully.");
+      }
       setNote("");
       setNoteStudent(null);
     } catch (error: unknown) {
