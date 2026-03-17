@@ -27,6 +27,9 @@ import {
   CartesianGrid,
   Cell,
   LabelList,
+  LineChart,
+  Line,
+  Legend,
 } from "recharts";
 
 type DashboardAnalytics = {
@@ -153,7 +156,7 @@ export default function FacultyDashboard() {
               Risk Distribution
             </p>
             <h3 className="text-xl font-black tracking-tight text-slate-900 dark:text-zinc-100">
-              Cohort Risk Columns
+              Cohort Risk (Horizontal)
             </h3>
             {!hasRiskData && !loading && (
               <p className="text-[11px] font-semibold text-slate-500 dark:text-zinc-400 mt-1">
@@ -163,16 +166,20 @@ export default function FacultyDashboard() {
           </div>
           <div className="h-72">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={riskChartData} margin={{ top: 14, right: 10, left: -16, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#33415522" />
-                <XAxis dataKey="name" tick={{ fontSize: 11 }} stroke="#64748b" />
-                <YAxis allowDecimals={false} tick={{ fontSize: 11 }} stroke="#64748b" />
+              <BarChart
+                data={riskChartData}
+                layout="vertical"
+                margin={{ top: 14, right: 10, left: 16, bottom: 0 }}
+              >
+                <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#33415522" />
+                <XAxis type="number" allowDecimals={false} tick={{ fontSize: 11 }} stroke="#64748b" />
+                <YAxis type="category" dataKey="name" tick={{ fontSize: 12 }} stroke="#64748b" width={80} />
                 <Tooltip />
-                <Bar dataKey="value" radius={[12, 12, 0, 0]} minPointSize={hasRiskData ? 0 : 4}>
+                <Bar dataKey="value" barSize={32} radius={[0, 12, 12, 0]} minPointSize={hasRiskData ? 0 : 4}>
                   {riskChartData.map((entry) => (
                     <Cell key={entry.name} fill={entry.color} />
                   ))}
-                  <LabelList dataKey="value" position="top" fill="#64748b" fontSize={11} />
+                  <LabelList dataKey="value" position="right" fill="#64748b" fontSize={13} />
                 </Bar>
               </BarChart>
             </ResponsiveContainer>
@@ -185,7 +192,7 @@ export default function FacultyDashboard() {
               Action Priority
             </p>
             <h3 className="text-xl font-black tracking-tight text-slate-900 dark:text-zinc-100">
-              Intervention Queue
+              Intervention Queue (Trend)
             </h3>
             {!hasPriorityData && !loading && (
               <p className="text-[11px] font-semibold text-slate-500 dark:text-zinc-400 mt-1">
@@ -195,15 +202,14 @@ export default function FacultyDashboard() {
           </div>
           <div className="h-72">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={priorityChartData} margin={{ top: 8, right: 12, left: -18, bottom: 0 }}>
+              <LineChart data={priorityChartData} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#33415522" />
                 <XAxis dataKey="name" tick={{ fontSize: 11 }} stroke="#64748b" />
                 <YAxis allowDecimals={false} tick={{ fontSize: 11 }} stroke="#64748b" />
                 <Tooltip />
-                <Bar dataKey="value" radius={[10, 10, 0, 0]} fill="#63D2F3" minPointSize={hasPriorityData ? 0 : 4}>
-                  <LabelList dataKey="value" position="top" fill="#64748b" fontSize={11} />
-                </Bar>
-              </BarChart>
+                <Legend />
+                <Line type="monotone" dataKey="value" stroke="#63D2F3" strokeWidth={3} dot={{ r: 7, fill: '#63D2F3' }} activeDot={{ r: 10 }} />
+              </LineChart>
             </ResponsiveContainer>
           </div>
         </div>
