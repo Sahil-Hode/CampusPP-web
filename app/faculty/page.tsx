@@ -17,6 +17,17 @@ import {
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { apiRequest } from "@/lib/api";
+import {
+  ResponsiveContainer,
+  Tooltip,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Cell,
+  LabelList,
+} from "recharts";
 
 type DashboardAnalytics = {
   totalStudents: number;
@@ -55,6 +66,21 @@ export default function FacultyDashboard() {
     }
     fetchAnalytics();
   }, []);
+
+  const riskChartData = [
+    { name: "High", value: stats?.riskDistribution?.High ?? 0, color: "#fb7185" },
+    { name: "Medium", value: stats?.riskDistribution?.Medium ?? 0, color: "#f59e0b" },
+    { name: "Low", value: stats?.riskDistribution?.Low ?? 0, color: "#22c55e" },
+  ];
+
+  const priorityChartData = [
+    { name: "Critical", value: stats?.byPriority?.critical ?? 0 },
+    { name: "Moderate", value: stats?.byPriority?.moderate ?? 0 },
+    { name: "Low", value: stats?.byPriority?.low ?? 0 },
+  ];
+
+  const hasRiskData = riskChartData.some((item) => item.value > 0);
+  const hasPriorityData = priorityChartData.some((item) => item.value > 0);
 
   return (
     <div className="max-w-7xl mx-auto space-y-10 pb-16 px-6 pt-6 transition-colors duration-500">
@@ -119,7 +145,71 @@ export default function FacultyDashboard() {
         />
       </div>
 
-      {/* 3. BENTO ACTIONS GRID */}
+      {/* 3. VISUAL ANALYTICS */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="bg-white dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800 rounded-[2.5rem] p-7 shadow-sm">
+          <div className="mb-4">
+            <p className="text-[10px] font-black text-slate-400 dark:text-zinc-500 uppercase tracking-[0.2em]">
+              Risk Distribution
+            </p>
+            <h3 className="text-xl font-black tracking-tight text-slate-900 dark:text-zinc-100">
+              Cohort Risk Columns
+            </h3>
+            {!hasRiskData && !loading && (
+              <p className="text-[11px] font-semibold text-slate-500 dark:text-zinc-400 mt-1">
+                No uploaded risk records yet.
+              </p>
+            )}
+          </div>
+          <div className="h-72">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={riskChartData} margin={{ top: 14, right: 10, left: -16, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#33415522" />
+                <XAxis dataKey="name" tick={{ fontSize: 11 }} stroke="#64748b" />
+                <YAxis allowDecimals={false} tick={{ fontSize: 11 }} stroke="#64748b" />
+                <Tooltip />
+                <Bar dataKey="value" radius={[12, 12, 0, 0]} minPointSize={hasRiskData ? 0 : 4}>
+                  {riskChartData.map((entry) => (
+                    <Cell key={entry.name} fill={entry.color} />
+                  ))}
+                  <LabelList dataKey="value" position="top" fill="#64748b" fontSize={11} />
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        <div className="bg-white dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800 rounded-[2.5rem] p-7 shadow-sm">
+          <div className="mb-4">
+            <p className="text-[10px] font-black text-slate-400 dark:text-zinc-500 uppercase tracking-[0.2em]">
+              Action Priority
+            </p>
+            <h3 className="text-xl font-black tracking-tight text-slate-900 dark:text-zinc-100">
+              Intervention Queue
+            </h3>
+            {!hasPriorityData && !loading && (
+              <p className="text-[11px] font-semibold text-slate-500 dark:text-zinc-400 mt-1">
+                No intervention priorities yet.
+              </p>
+            )}
+          </div>
+          <div className="h-72">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={priorityChartData} margin={{ top: 8, right: 12, left: -18, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#33415522" />
+                <XAxis dataKey="name" tick={{ fontSize: 11 }} stroke="#64748b" />
+                <YAxis allowDecimals={false} tick={{ fontSize: 11 }} stroke="#64748b" />
+                <Tooltip />
+                <Bar dataKey="value" radius={[10, 10, 0, 0]} fill="#63D2F3" minPointSize={hasPriorityData ? 0 : 4}>
+                  <LabelList dataKey="value" position="top" fill="#64748b" fontSize={11} />
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      </div>
+
+      {/* 4. BENTO ACTIONS GRID */}
       <div className="grid lg:grid-cols-12 gap-8">
         
         {/* BIG ACTION: UPLOAD */}
