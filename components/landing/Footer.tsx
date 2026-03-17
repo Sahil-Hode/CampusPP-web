@@ -45,9 +45,9 @@ export default function Footer() {
             <div className="space-y-6">
               <h4 className="text-[11px] font-black text-slate-900 uppercase tracking-[0.25em]">Portals</h4>
               <ul className="space-y-4">
-                <FooterLink href="/login" label="Student Access" />
-                <FooterLink href="/institute-login" label="Institute Portal" />
-                <FooterLink href="#" label="Faculty Dashboard" />
+                <FooterLink href="/institute-login" label="Faculty/Admin Portal" />
+                <FooterLink href="/institute-register" label="Register Institute" />
+                <FooterLink href="/faculty" label="Faculty Dashboard" />
               </ul>
             </div>
 

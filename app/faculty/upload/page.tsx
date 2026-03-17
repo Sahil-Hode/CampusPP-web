@@ -6,6 +6,7 @@ import {
   Loader2, X, Download, Lock, AlertCircle, CheckCircle2
 } from "lucide-react";
 import Papa from "papaparse";
+import { getToken } from "@/lib/auth";
 
 export default function RegistrationPipeline() {
   // Matches the provided API JSON Structure
@@ -35,7 +36,7 @@ export default function RegistrationPipeline() {
   const [token, setToken] = useState("");
 
   useEffect(() => {
-    const stored = localStorage.getItem("token");
+    const stored = getToken();
     if (stored) setToken(stored);
   }, []);
 

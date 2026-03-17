@@ -63,10 +63,10 @@ export default function Navbar() {
           </div>
 
           <Link
-            href="/login"
+            href="/institute-login"
             className="bg-[#63D2F3] text-white px-8 py-3.5 rounded-[1.5rem] font-black text-[10px] uppercase tracking-[0.2em] shadow-[0_5px_0_0_#48BBDB] hover:translate-y-[2px] hover:shadow-[0_3px_0_0_#48BBDB] active:translate-y-[5px] active:shadow-none transition-all flex items-center gap-2"
           >
-            Student Login <Zap size={14} className="fill-current" />
+            Faculty/Admin Login <Zap size={14} className="fill-current" />
           </Link>
         </div>
 
@@ -90,11 +90,11 @@ export default function Navbar() {
           >
             <div className="space-y-4">
               <Link
-                href="/login"
+                href="/institute-login"
                 onClick={() => setMobileMenuOpen(false)}
                 className="flex items-center justify-center w-full bg-[#63D2F3] text-white py-5 rounded-[1.8rem] font-black text-[10px] uppercase tracking-widest shadow-[0_6px_0_0_#48BBDB]"
               >
-                Student Login <Zap size={14} className="ml-2 fill-current" />
+                Faculty/Admin Login <Zap size={14} className="ml-2 fill-current" />
               </Link>
 
               <div className="h-px bg-slate-100 dark:bg-zinc-800 mx-4" />

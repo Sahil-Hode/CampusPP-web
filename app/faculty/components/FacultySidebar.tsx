@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import {
   LayoutDashboard,
   FileUp,
@@ -14,6 +14,7 @@ import {
   CheckCircle2
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { logout } from "@/lib/auth";
 
 interface SidebarProps {
   isOpen: boolean;
@@ -22,7 +23,6 @@ interface SidebarProps {
 
 export default function FacultySidebar({ isOpen, setIsOpen }: SidebarProps) {
   const pathname = usePathname();
-  const router = useRouter();
 
   const menuItems = [
     { name: "Dashboard", href: "/faculty", icon: LayoutDashboard },
@@ -32,8 +32,7 @@ export default function FacultySidebar({ isOpen, setIsOpen }: SidebarProps) {
   ];
 
   const handleSignOut = () => {
-    localStorage.clear();
-    router.push("/login");
+    logout();
   };
 
   return (

@@ -1,10 +1,12 @@
+import { clearAuthData, getToken } from "@/lib/auth";
+
 export const BASE_URL = "https://techxpression-hackathon.onrender.com/api";
 
 export async function apiRequest(
   endpoint: string,
   options: RequestInit = {}
 ) {
-  const token = localStorage.getItem("token") || localStorage.getItem("access_token");
+  const token = getToken();
 
   const res = await fetch(`${BASE_URL}${endpoint}`, {
     method: options.method || "GET",
@@ -33,10 +35,9 @@ export async function apiRequest(
 
     // Handle Session Expiration
     if (res.status === 401) {
-      localStorage.removeItem("token");
-      localStorage.removeItem("access_token");
+      clearAuthData();
       if (typeof window !== "undefined") {
-        window.location.href = "/login";
+        window.location.href = "/institute-login";
       }
     }
 

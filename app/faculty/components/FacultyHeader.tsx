@@ -10,9 +10,9 @@ import {
   Moon,
 } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
-import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { useDashboardTheme } from "../../../components/ThemeProvider";
+import { logout } from "@/lib/auth";
 
 interface FacultyHeaderProps {
   onOpenSidebar: () => void;
@@ -24,7 +24,6 @@ export default function FacultyHeader({ onOpenSidebar }: FacultyHeaderProps) {
   const [name, setName] = useState("Professor");
 
   const { theme, toggleTheme } = useDashboardTheme();
-  const router = useRouter();
 
   const profileRef = useRef<HTMLDivElement>(null);
   const [mounted, setMounted] = useState(false);
@@ -55,8 +54,7 @@ export default function FacultyHeader({ onOpenSidebar }: FacultyHeaderProps) {
   }, []);
 
   const handleLogout = () => {
-    localStorage.clear();
-    router.push("/login");
+    logout();
   };
 
   return (

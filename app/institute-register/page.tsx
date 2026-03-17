@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import { apiRequest } from "@/lib/api";
+import { setToken } from "@/lib/auth";
 import {
   Building2,
   Mail,
@@ -60,11 +61,15 @@ export default function InstituteRegisterPage() {
        */
 
       // 🔐 Store auth data
-      localStorage.setItem("token", res.token);
+      setToken(res.token);
       localStorage.setItem("user_name", res.user?.name || name);
       localStorage.setItem("user_email", res.user?.email || email);
-      localStorage.setItem("user_role", res.user?.role || "admin");
+      localStorage.setItem("user_role", (res.user?.role || "admin").toLowerCase());
       localStorage.setItem("institute_id", res.user?.instituteId || "");
+      sessionStorage.setItem("user_name", res.user?.name || name);
+      sessionStorage.setItem("user_email", res.user?.email || email);
+      sessionStorage.setItem("user_role", (res.user?.role || "admin").toLowerCase());
+      sessionStorage.setItem("institute_id", res.user?.instituteId || "");
 
       // 🚀 Go to faculty dashboard
       router.push("/faculty");

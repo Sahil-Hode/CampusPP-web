@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
+import { getToken } from "@/lib/auth";
 import {
   ArrowLeft,
   TrendingUp,
@@ -251,7 +252,7 @@ export default function StudentDetailPage() {
   useEffect(() => {
     async function fetchStudentPerformance() {
       try {
-        const token = localStorage.getItem("token") || localStorage.getItem("access_token");
+        const token = getToken();
         const res = await fetch(`${PERFORMANCE_API}/student/public/performance/${studentId}`, {
           method: "GET",
           headers: {

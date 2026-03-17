@@ -31,27 +31,27 @@ export default function CTA() {
           </h2>
 
           <p className="mt-6 text-slate-400 font-bold text-lg md:text-xl max-w-2xl mx-auto leading-relaxed">
-            Whether you are a student forging your path or an institute managing excellence,
-            everything you need is one click away.
+            Campus++ now supports institute operations only.
+            Use faculty/admin access to manage students, risk, and interventions.
           </p>
 
-          {/* Dual Action Buttons */}
+          {/* Action Buttons */}
           <div className="mt-14 flex flex-col md:flex-row items-center justify-center gap-6">
             <Link
-              href="/login"
+              href="/institute-login"
               className="group w-full md:w-auto inline-flex items-center justify-center gap-3 bg-[#63D2F3] text-white px-10 py-6 rounded-[2rem] font-black text-sm uppercase tracking-[0.2em] shadow-[0_8px_0_0_#48BBDB] hover:translate-y-[2px] hover:shadow-[0_6px_0_0_#48BBDB] active:translate-y-[8px] active:shadow-none transition-all"
             >
-              <GraduationCap size={20} strokeWidth={2.5} />
-              Student Login
+              <Building2 size={20} strokeWidth={2.5} />
+              Faculty/Admin Login
               <ArrowRight className="w-5 h-5 transition-transform group-hover:translate-x-1" strokeWidth={3} />
             </Link>
 
             <Link
-              href="/institute-login"
+              href="/institute-register"
               className="group w-full md:w-auto inline-flex items-center justify-center gap-3 bg-white border-2 border-slate-100 text-slate-800 px-10 py-6 rounded-[2rem] font-black text-sm uppercase tracking-[0.2em] hover:bg-slate-50 transition-all"
             >
-              <Building2 size={20} className="text-[#63D2F3]" strokeWidth={2.5} />
-              Institute Login
+              <Sparkles size={20} className="text-[#63D2F3]" strokeWidth={2.5} />
+              Register Institute
             </Link>
           </div>
 

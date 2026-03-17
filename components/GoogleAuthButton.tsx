@@ -2,6 +2,7 @@
 
 import { useGoogleLogin } from "@react-oauth/google";
 import { apiRequest } from "@/lib/api";
+import { setToken } from "@/lib/auth";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
@@ -22,8 +23,8 @@ export default function GoogleAuthButton() {
           }),
         });
 
-        localStorage.setItem("token", data.token);
-        router.push("/dashboard");
+        setToken(data.token);
+        router.push("/faculty");
       } catch (err) {
         console.error("Google login failed", err);
       } finally {

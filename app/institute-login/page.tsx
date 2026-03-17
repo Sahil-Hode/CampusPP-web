@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import { apiRequest } from "@/lib/api";
+import { setToken } from "@/lib/auth";
 import { Building2, Mail, Lock, Zap } from "lucide-react";
 import Link from "next/link";
 
@@ -40,7 +41,7 @@ export default function InstituteLoginPage() {
        */
 
       // 🔐 Store auth token
-      localStorage.setItem("token", res.token);
+      setToken(res.token);
 
       // 👤 Store institute/faculty info
       localStorage.setItem(
@@ -53,8 +54,11 @@ export default function InstituteLoginPage() {
       );
       localStorage.setItem(
         "user_role",
-        res.institute?.role || "FACULTY"
+        (res.institute?.role || "FACULTY").toLowerCase()
       );
+      sessionStorage.setItem("user_name", res.institute?.name || "Institute Admin");
+      sessionStorage.setItem("user_email", res.institute?.email || email);
+      sessionStorage.setItem("user_role", (res.institute?.role || "FACULTY").toLowerCase());
 
       // 🚀 Redirect to faculty dashboard
       router.push("/faculty");
@@ -134,11 +138,11 @@ export default function InstituteLoginPage() {
             {!loading && <Zap size={16} />}
           </button>
 
-          {/* Student login */}
+          {/* Institute register */}
           <p className="text-center text-xs font-bold text-slate-400">
-            Not an admin?{" "}
-            <Link href="/login" className="text-[#63D2F3] font-black">
-              Student Login
+            New institute?{" "}
+            <Link href="/institute-register" className="text-[#63D2F3] font-black">
+              Register here
             </Link>
           </p>
         </div>

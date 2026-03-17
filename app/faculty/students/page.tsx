@@ -5,6 +5,7 @@ import StudentTable from "../components/StudentTable";
 import { Search, Filter, Users, AlertTriangle } from "lucide-react";
 import { motion } from "framer-motion";
 import { apiRequest } from "@/lib/api";
+import { getToken } from "@/lib/auth";
 
 const PERFORMANCE_API = "https://campuspp-f7qx.onrender.com/api";
 
@@ -41,7 +42,7 @@ export default function StudentsPage() {
   const [riskFilter, setRiskFilter] = useState("all");
 
   const hydrateWithLatestPerformance = async (baseStudents: Student[]) => {
-    const token = localStorage.getItem("token") || localStorage.getItem("access_token");
+    const token = getToken();
 
     const settled = await Promise.allSettled(
       baseStudents.map(async (s) => {
@@ -77,8 +78,8 @@ export default function StudentsPage() {
   };
 
   const sendFacultyNote = async (studentId: string, note: string) => {
-    const token = localStorage.getItem("token") || localStorage.getItem("access_token");
-    const facultyName = localStorage.getItem("user_name") || "Faculty";
+    const token = getToken();
+    const facultyName = sessionStorage.getItem("user_name") || localStorage.getItem("user_name") || "Faculty";
 
     const res = await fetch("/api/faculty-annotations", {
       method: "POST",

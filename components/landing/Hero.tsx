@@ -64,19 +64,19 @@ export default function Hero() {
           className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-2"
         >
           <Link
-            href="/register"
+            href="/institute-register"
             className="group relative w-full sm:w-auto flex items-center justify-center gap-3 bg-[#63D2F3] text-white px-10 py-4.5 rounded-[1.8rem] font-black text-xs uppercase tracking-widest shadow-[0_6px_0_0_#48BBDB] hover:translate-y-[2px] hover:shadow-[0_4px_0_0_#48BBDB] active:translate-y-[6px] active:shadow-none transition-all"
           >
-            Get Started
+            Register Institute
             <ArrowRight size={18} className="transition-transform group-hover:translate-x-1" strokeWidth={3} />
           </Link>
 
           <Link
-            href="/login"
+            href="/institute-login"
             className="w-full sm:w-auto flex items-center justify-center gap-3 bg-white border-2 border-slate-100 text-slate-800 px-10 py-4.5 rounded-[1.8rem] font-black text-xs uppercase tracking-widest hover:bg-slate-50 transition-all shadow-sm"
           >
             <Bot size={18} className="text-[#63D2F3]" strokeWidth={2.5} />
-            Explore
+            Faculty/Admin Login
           </Link>
         </motion.div>
 
